@@ -548,9 +548,9 @@
   // Render Card cho Control Nexus (3 Slots) - Ghi rõ giờ thay ca & chiến lược phối hợp giờ nghỉ
   function renderNexusCard(roomKey, roomTitle, roomAssignment, x, nexusRegen1, nexusRegen2, autoX) {
     const remain = 24 - x;
-    const isShift1Stronger = nexusRegen1.totalBuffPct >= nexusRegen2.totalBuffPct;
-    const strongShiftName = isShift1Stronger ? 'Ca 1' : 'Ca 2';
-    const strongHours = isShift1Stronger ? `00:00 ➔ ${x}:00` : `${x}:00 ➔ 24:00`;
+    const isShift2Stronger = nexusRegen2.totalBuffPct >= nexusRegen1.totalBuffPct;
+    const strongShiftName = isShift2Stronger ? 'Ca 2' : 'Ca 1';
+    const strongHours = isShift2Stronger ? `${x}:00 ➔ 24:00` : `00:00 ➔ ${x}:00`;
     const strongBuff = Math.max(nexusRegen1.totalBuffPct, nexusRegen2.totalBuffPct);
 
     return `
@@ -589,7 +589,7 @@
             ⏱ <strong>Thời gian thay ca Nexus: lúc ${x}:00</strong> (Ca 1: 00:00 ➔ ${x}:00 | Ca 2: ${x}:00 ➔ 24:00)
           </div>
           <div style="color:var(--text-secondary); margin-top:2px;">
-            💡 <em>Chiến lược:</em> Ca mạnh nhất (<strong>${strongShiftName} buff +${strongBuff}%</strong>) được bố trí trực khung giờ <strong>${strongHours}</strong> để hỗ trợ hồi phục tối đa cho các cán viên khoang sản xuất khi họ đổi ca về nghỉ ngơi.
+            💡 <em>Chiến lược chuẩn:</em> Ca 1 sản xuất (chủ lực) làm việc từ 00:00 ➔ x:00 và bắt đầu về nghỉ ngơi từ ${x}:00 ➔ 24:00. Do đó, ca Nexus mạnh nhất (<strong>${strongShiftName} buff +${strongBuff}%</strong>) được bố trí trực từ <strong>${strongHours}</strong> để đón và tiếp sức hồi phục tối đa cho các cán viên chủ lực khi họ nghỉ ngơi!
           </div>
         </div>
 

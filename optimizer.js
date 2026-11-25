@@ -160,17 +160,37 @@
 
       candidates.sort((a, b) => b.score - a.score);
 
-      const shift1Ops = candidates.slice(0, cap).map(c => c.op);
-      shift1Ops.forEach(op => usedOperators.add(op.name));
+      if (rKey === 'nexus') {
+        // Với Trung Tâm Kiểm Soát:
+        // Đa số các phòng sản xuất bố trí Ca 1 là team mạnh nhất (làm từ 00:00 -> x, và chỉ nghỉ từ x -> 24:00).
+        // Ngược lại, Ca 2 sản xuất (team phụ) nghỉ từ 00:00 -> x (thời gian nghỉ rất dài, 11h-19h nên không lo thiếu stamina).
+        // Do đó: Nhóm 3 cán viên có buff Tái Tạo Tâm Trạng cao nhất (+48%) PHẢI TRỰC Ở CA 2 (từ x -> 24:00)
+        // để hỗ trợ nạp stamina cấp tốc cho Team 1 chủ lực ngay khi họ đổi ca về nghỉ ngơi!
+        // Ca 1 của Nexus (trực 00:00 -> x) bố trí nhóm buff phụ.
+        const strongNexusOps = candidates.slice(0, cap).map(c => c.op);
+        strongNexusOps.forEach(op => usedOperators.add(op.name));
 
-      const remainingCandidates = candidates.slice(cap).filter(c => !usedOperators.has(c.op.name));
-      const shift2Ops = remainingCandidates.slice(0, cap).map(c => c.op);
-      shift2Ops.forEach(op => usedOperators.add(op.name));
+        const remainingCandidates = candidates.slice(cap).filter(c => !usedOperators.has(c.op.name));
+        const subNexusOps = remainingCandidates.slice(0, cap).map(c => c.op);
+        subNexusOps.forEach(op => usedOperators.add(op.name));
 
-      assignment[rKey] = {
-        shift1: shift1Ops,
-        shift2: shift2Ops
-      };
+        assignment[rKey] = {
+          shift1: subNexusOps,
+          shift2: strongNexusOps
+        };
+      } else {
+        const shift1Ops = candidates.slice(0, cap).map(c => c.op);
+        shift1Ops.forEach(op => usedOperators.add(op.name));
+
+        const remainingCandidates = candidates.slice(cap).filter(c => !usedOperators.has(c.op.name));
+        const shift2Ops = remainingCandidates.slice(0, cap).map(c => c.op);
+        shift2Ops.forEach(op => usedOperators.add(op.name));
+
+        assignment[rKey] = {
+          shift1: shift1Ops,
+          shift2: shift2Ops
+        };
+      }
     }
 
     return assignment;
@@ -378,7 +398,8 @@
   }
 
   // Tối ưu mốc đổi ca cho Control Nexus:
-  // Cân đối thời gian đổi ca của Nexus sao cho ca Nexus mạnh nhất trùng với khoảng thời gian đa số các phòng sản xuất đổi ca về nghỉ
+  // Cân đối thời gian đổi ca của Nexus sao cho ca Nexus mạnh nhất (Ca 2) bắt đầu sớm đủ để đón
+  // các đợt đổi ca về nghỉ của các cán viên Ca 1 chủ lực ở các phòng sản xuất
   function findOptimalNexusX(roomXSettings) {
     const prodXValues = [
       roomXSettings.mfg1 || 12,
@@ -386,9 +407,12 @@
       roomXSettings.growth || 12,
       roomXSettings.reception || 12
     ];
-    // Điểm giao đổi ca trung bình của các phòng sản xuất
-    const avgProdX = Math.round(prodXValues.reduce((a, b) => a + b, 0) / prodXValues.length);
-    return Math.max(8, Math.min(16, avgProdX));
+    // Sắp xếp các mốc đổi ca sản xuất tăng dần
+    prodXValues.sort((a, b) => a - b);
+    // Chọn mốc sớm nhất khi phòng sản xuất đầu tiên đổi ca về nghỉ (giới hạn an toàn từ 8h đến 14h)
+    // để khi các cán viên Ca 1 sản xuất bắt đầu về nghỉ thì Nexus Ca 2 (+buff lớn nhất) đã sẵn sàng túc trực!
+    const earliestProdX = prodXValues[0];
+    return Math.max(8, Math.min(14, earliestProdX));
   }
 
   function calculateLevelUpCost(curLvl, targetLvl) {
