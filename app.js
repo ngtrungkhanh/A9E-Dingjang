@@ -50,7 +50,7 @@
       staminaSafe: "✓ Trụ hết ca an toàn",
       staminaDepleted: "⚠ Cạn lúc {h}h (nghỉ {rest}h)",
       burnRateLabel: "Hao: {burn}%/h",
-      dailyOutLabel: "Sản lượng TB/ngày: <strong>{out}</strong> đv (~{san} San/ngày)",
+      dailyOutLabel: "Sản lượng: <strong style='color:#38bdf8;'>{san} San/ngày</strong> ({out} đv)",
       dailyEffLabel: "Hiệu suất TB/ngày: <strong>{eff}%</strong>",
       btnResetDefault: "↺ Mặc định (12h)",
       btnApplyOptimal: "⚡ Đề xuất ({h}h)",
@@ -58,8 +58,8 @@
       nexusFormulaDesc: "Mặc định không có ai: 12%/giờ (đúng 5 phút / 1% Stamina). Tốc độ hồi thực tế = 12% × (1 + Tổng % buff Nexus).",
       nexusShift1Regen: "Ca 1 buff +{buff}% ➔ Tốc độ hồi: {real}%/h (Ingame hiển thị: {ingame}%/h)",
       nexusShift2Regen: "Ca 2 buff +{buff}% ➔ Tốc độ hồi: {real}%/h (Ingame hiển thị: {ingame}%/h)",
-      recTitle: "🚀 Đề Xuất Nâng Cấp Cán Viên Mở Thêm Skill (Xếp Theo ROI / Chi Phí Vốn)",
-      recSub: "Chi phí quy đổi theo Stamina/Sanity chuẩn (Ải 80 San: EXP, T-Creds, Đột phá E1-E4 & Node Skill. Đã loại bỏ skill xác suất)",
+      recTitle: "🚀 Đề Xuất Nâng Cấp Cán Viên (Hoàn Vốn Sanity Nhanh Nhất)",
+      recSub: "Quy đổi theo Sanity ải 80 San. Xếp hạng theo thời gian hoàn vốn ngắn nhất (Payback Period = Vốn Sanity / Sanity tăng thêm mỗi ngày). Đã loại bỏ skill xác suất.",
       recEmpty: "Tất cả cán viên hiện có đều đã mở tối đa kỹ năng căn cứ!",
       recNeedAccount: "Vui lòng chọn chế độ 'Tài Khoản Của Tôi' để xem danh sách nâng cấp riêng cho kho cán viên của bạn.",
       modalTitle: "Cập Nhật Dữ Liệu Nhân Vật (100% Offline & Cache Local)",
@@ -117,7 +117,7 @@
       staminaSafe: "✓ Sustainable Shift",
       staminaDepleted: "⚠ Depleted at {h}h ({rest}h idle)",
       burnRateLabel: "Burn: {burn}%/h",
-      dailyOutLabel: "Daily Avg Out: <strong>{out}</strong> units (~{san} San/day)",
+      dailyOutLabel: "Output: <strong style='color:#38bdf8;'>{san} San/day</strong> ({out} units)",
       dailyEffLabel: "Daily Avg Eff: <strong>{eff}%</strong>",
       btnResetDefault: "↺ Default (12h)",
       btnApplyOptimal: "⚡ Optimal ({h}h)",
@@ -125,8 +125,8 @@
       nexusFormulaDesc: "Base rest speed: 12%/h (exactly 5 mins / 1% Stamina). Actual regen speed = 12% × (1 + sum of Nexus buffs).",
       nexusShift1Regen: "Shift 1 buff +{buff}% ➔ Regen speed: {real}%/h (Ingame: {ingame}%/h)",
       nexusShift2Regen: "Shift 2 buff +{buff}% ➔ Regen speed: {real}%/h (Ingame: {ingame}%/h)",
-      recTitle: "🚀 Operator Level Up Recommendations (Ranked by Cost-to-Efficiency ROI)",
-      recSub: "Calibrated via standardized Sanity costs (80-San stages: EXP, T-Creds, Promo E1-E4 & Skill Nodes. Clue chance excluded)",
+      recTitle: "🚀 Operator Upgrade Recommendations (Ranked by Sanity Payback Time)",
+      recSub: "Calibrated via 80-Sanity stages. Ranked by shortest payback period (Capital / Daily Sanity Gain). Clue chances excluded.",
       recEmpty: "All currently owned operators have unlocked maximum base skills!",
       recNeedAccount: "Please switch to 'My Account' mode to see upgrade recommendations for your roster.",
       modalTitle: "Update Operator Data (100% Offline & Local Cache)",
@@ -410,28 +410,28 @@
         <div class="metrics-grid">
           <div class="metric-box cyan">
             <div class="metric-title">${t('wCharExp')}</div>
-            <div class="metric-num">${simResults.mfg1.dailyOutputAvg} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">đv</span></div>
-            <div class="metric-desc">≈ ${simResults.mfg1.sanityDaily} San/ngày</div>
+            <div class="metric-num" style="color:#38bdf8;">${simResults.mfg1.sanityDaily} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
+            <div class="metric-desc">Sản lượng: ${simResults.mfg1.dailyOutputAvg} đv/ngày</div>
           </div>
           <div class="metric-box cyan">
             <div class="metric-title">${t('wWeaponExp')}</div>
-            <div class="metric-num">${simResults.mfg2.dailyOutputAvg} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">đv</span></div>
-            <div class="metric-desc">≈ ${simResults.mfg2.sanityDaily} San/ngày</div>
+            <div class="metric-num" style="color:#38bdf8;">${simResults.mfg2.sanityDaily} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
+            <div class="metric-desc">Sản lượng: ${simResults.mfg2.dailyOutputAvg} đv/ngày</div>
           </div>
           <div class="metric-box green">
             <div class="metric-title">${t('growthName')}</div>
-            <div class="metric-num">${simResults.growth.dailyOutputAvg} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">đv</span></div>
-            <div class="metric-desc">≈ ${simResults.growth.sanityDaily} San/ngày</div>
+            <div class="metric-num" style="color:#34d399;">${simResults.growth.sanityDaily} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
+            <div class="metric-desc">Sản lượng: ${simResults.growth.dailyOutputAvg} đv/ngày</div>
           </div>
           <div class="metric-box purple">
             <div class="metric-title">${t('wClue')}</div>
-            <div class="metric-num">${simResults.reception.dailyOutputAvg} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">đv</span></div>
-            <div class="metric-desc">≈ ${simResults.reception.sanityDaily} San/ngày</div>
+            <div class="metric-num" style="color:#c084fc;">${simResults.reception.sanityDaily} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
+            <div class="metric-desc">Sản lượng: ${simResults.reception.dailyOutputAvg} đv/ngày</div>
           </div>
           <div class="metric-box">
-            <div class="metric-title">Tổng Sanity Quy Đổi</div>
-            <div class="metric-num" style="color:#fbbf24;">${parseFloat(totalBaseDailySanity.toFixed(1))} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
-            <div class="metric-desc">Tổng sản lượng: ${parseFloat(totalBaseDailyOutput.toFixed(1))} đv</div>
+            <div class="metric-title">Tổng Sanity Căn Cứ</div>
+            <div class="metric-num" style="color:#fbbf24;">${parseFloat(totalBaseDailySanity.toFixed(1))} <span style="font-size:0.75rem; font-weight:normal; color:#fde68a;">San/ngày</span></div>
+            <div class="metric-desc">Quy đổi từ ${parseFloat(totalBaseDailyOutput.toFixed(1))} đv sản phẩm/ngày</div>
           </div>
         </div>
 
@@ -683,28 +683,35 @@
       listHtml = `<div style="font-size:0.82rem; color:#34d399; padding:0.5rem 0;">${t('recEmpty')}</div>`;
     } else {
       listHtml = recs.map((r, idx) => `
-        <div style="background:rgba(15,23,42,0.8); border:1px solid var(--border-color); border-radius:8px; padding:0.75rem 1rem; display:grid; grid-template-columns: 32px 1fr auto; align-items:center; gap:0.75rem;">
-          <div style="font-family:var(--font-mono); font-weight:800; font-size:1.1rem; color:var(--accent-orange); text-align:center;">
-            #${idx + 1}
-          </div>
-          <div>
-            <div style="font-size:0.9rem; font-weight:700; color:#fff; display:flex; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-              <span class="op-star">★${r.rarity}</span>
-              <span>${r.name}</span>
-              <span class="badge-tag" style="background:rgba(6,182,212,0.15); color:#38bdf8; font-size:0.75rem;">Lv.${r.curLvl} ➔ Lv.${r.targetLvl}</span>
-            </div>
-            <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:3px;">
-              <span style="color:var(--text-muted);">[${r.cabin}]</span> <strong style="color:#fbbf24;">${r.shortBenefit}</strong>
-            </div>
-          </div>
-          <div style="display:flex; align-items:center; gap:1rem; text-align:right;">
-            <div>
-              <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Vốn Sanity</div>
-              <div style="font-family:var(--font-mono); font-weight:700; font-size:0.95rem; color:#f87171;">${r.cost} San</div>
+        <div style="background:rgba(15,23,42,0.8); border:1px solid var(--border-color); border-radius:8px; padding:0.75rem 1rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+          <div style="display:flex; align-items:center; gap:0.75rem; min-width:240px; flex:1;">
+            <div style="font-family:var(--font-mono); font-weight:800; font-size:1.1rem; color:var(--accent-orange); width:32px; text-align:center;">
+              #${idx + 1}
             </div>
             <div>
-              <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">ROI (/100 San)</div>
-              <div style="font-family:var(--font-mono); font-weight:800; font-size:1.1rem; color:#34d399;">${r.roi}%</div>
+              <div style="font-size:0.9rem; font-weight:700; color:#fff; display:flex; align-items:center; flex-wrap:wrap; gap:0.4rem;">
+                <span class="op-star">★${r.rarity}</span>
+                <span>${r.name}</span>
+                <span class="badge-tag" style="background:rgba(6,182,212,0.15); color:#38bdf8; font-size:0.75rem;">Lv.${r.curLvl} ➔ Lv.${r.targetLvl}</span>
+              </div>
+              <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:3px;">
+                <span style="color:var(--text-muted);">[${r.cabin}]</span> <strong style="color:#fbbf24;">${r.shortBenefit}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:1.2rem; margin-left:auto; text-align:right;">
+            <div>
+              <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase;">Vốn Đầu Tư</div>
+              <div style="font-family:var(--font-mono); font-weight:700; font-size:0.9rem; color:#f87171;">${r.cost} San</div>
+            </div>
+            <div>
+              <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase;">Thu Thêm</div>
+              <div style="font-family:var(--font-mono); font-weight:700; font-size:0.9rem; color:#38bdf8;">+${r.dailySanityGain} San/ngày</div>
+            </div>
+            <div style="background:rgba(52, 211, 153, 0.1); border:1px solid rgba(52, 211, 153, 0.3); border-radius:6px; padding:0.25rem 0.55rem;">
+              <div style="font-size:0.68rem; color:#34d399; text-transform:uppercase; font-weight:700;">Hoàn Vốn</div>
+              <div style="font-family:var(--font-mono); font-weight:800; font-size:1.05rem; color:#34d399;">⚡ ${r.paybackDays} ngày</div>
             </div>
           </div>
         </div>

@@ -537,12 +537,15 @@
 
   // TÍNH TOÁN CHI PHÍ SANITY/STAMINA THEO BẢNG QUY ĐỔI CHUẨN (A9E_SANITY_DATA)
   function calculateLevelUpCost(curLvl, targetLvl) {
-    if (typeof window !== 'undefined' && window.A9E_SANITY_DATA && typeof window.A9E_SANITY_DATA.calculateSanityToMilestone === 'function') {
+    const sanityData = (typeof window !== 'undefined' && window.A9E_SANITY_DATA) ||
+                       (typeof global !== 'undefined' && global.A9E_SANITY_DATA);
+    if (sanityData && typeof sanityData.calculateSanityToMilestone === 'function') {
       let targetMilestone = 1;
       if (targetLvl >= 80) targetMilestone = 4;
       else if (targetLvl >= 60) targetMilestone = 3;
       else if (targetLvl >= 40) targetMilestone = 2;
-      return window.A9E_SANITY_DATA.calculateSanityToMilestone(curLvl, targetMilestone);
+      else if (targetLvl >= 20) targetMilestone = 1;
+      return sanityData.calculateSanityToMilestone(curLvl, targetMilestone);
     }
     // Fallback nếu chưa nạp thư viện Sanity
     let cost = 0;
@@ -574,7 +577,29 @@
     return desc;
   }
 
-  // Đề xuất nâng cấp: ĐÃ LOẠI BỎ TẤT CẢ SKILL XÁC SUẤT MANH MỐI
+  function calculateDailySanityGain(cabinVi, effGain) {
+    // Giả định trung bình ca làm việc 13h/ngày cho cán viên
+    const avgShiftHours = 13.0;
+    if (cabinVi.includes('Sản Xuất') || cabinVi.includes('Manufacturing')) {
+      // 1 đv sản lượng EXP = 0.48128 Sanity. Cứ +100% hiệu suất sinh ra 1 đv/h
+      return parseFloat((avgShiftHours * (effGain / 100) * 0.48128).toFixed(2));
+    }
+    if (cabinVi.includes('Buồng Phát Triển') || cabinVi.includes('Growth')) {
+      // 1 đv sản lượng Buồng Phát Triển = 0.14438 Sanity
+      return parseFloat((avgShiftHours * (effGain / 100) * 0.14438).toFixed(2));
+    }
+    if (cabinVi.includes('Tiếp Khách') || cabinVi.includes('Reception')) {
+      // 1 đv sản lượng Tiếp Khách = 0.24064 Sanity
+      return parseFloat((avgShiftHours * (effGain / 100) * 0.24064).toFixed(2));
+    }
+    if (cabinVi.includes('Kiểm Soát') || cabinVi.includes('Nexus')) {
+      // Nexus buff +12% hồi phục giúp các cán viên hồi phục nhanh hơn, tăng thời gian làm việc toàn trạm
+      return 1.25;
+    }
+    return 1.0;
+  }
+
+  // Đề xuất nâng cấp: QUY ĐỔI SANITY & XẾP THEO THỜI GIAN HOÀN VỐN NGẮN NHẤT
   function getUpgradeRecommendations(userOperators, fullSkillsData) {
     if (!userOperators || userOperators.length === 0) return [];
 
@@ -605,6 +630,34 @@
         if (unlocked.includes(l.skill_id)) s2_cur = l;
       }
 
+      // Case 0: Chưa mở Slot 1 (Lv < 20)
+      if (!s1_cur && lvl < 20) {
+        const unlockSkill = s1.levels[0];
+        if (!isClueProbabilitySkill(unlockSkill.desc_vi || '')) {
+          const targetLvl = 20;
+          const cost = calculateLevelUpCost(lvl, targetLvl);
+          const shortBenefit = getShortSkillBenefit(unlockSkill.desc_vi || '');
+          const effMatch = (unlockSkill.desc_vi || '').match(/(\d+)%/);
+          const effGain = effMatch ? parseInt(effMatch[1], 10) : 10;
+          const dailySanityGain = calculateDailySanityGain(s1.cabin_vi, effGain);
+          const paybackDays = Math.round(cost / Math.max(0.05, dailySanityGain));
+          const dailyRoi = parseFloat(((dailySanityGain / Math.max(1, cost)) * 100).toFixed(2));
+          recs.push({
+            name,
+            rarity: op.rarity || '5',
+            curLvl: lvl,
+            targetLvl,
+            cost: parseFloat(cost.toFixed(1)),
+            dailySanityGain,
+            paybackDays,
+            dailyRoi,
+            cabin: s1.cabin_vi,
+            shortBenefit: `Mở mới: ${shortBenefit}`,
+            effGain
+          });
+        }
+      }
+
       // Case 1: Chưa mở Slot 2 (Lv < 40)
       if (!s2_cur && lvl < 40) {
         const unlockSkill = s2.levels[0];
@@ -612,17 +665,23 @@
           const targetLvl = 40;
           const cost = calculateLevelUpCost(lvl, targetLvl);
           const shortBenefit = getShortSkillBenefit(unlockSkill.desc_vi || '');
-          const effGain = 20;
+          const effMatch = (unlockSkill.desc_vi || '').match(/(\d+)%/);
+          const effGain = effMatch ? parseInt(effMatch[1], 10) : 20;
+          const dailySanityGain = calculateDailySanityGain(s2.cabin_vi, effGain);
+          const paybackDays = Math.round(cost / Math.max(0.05, dailySanityGain));
+          const dailyRoi = parseFloat(((dailySanityGain / Math.max(1, cost)) * 100).toFixed(2));
           recs.push({
             name,
             rarity: op.rarity || '5',
             curLvl: lvl,
             targetLvl,
             cost: parseFloat(cost.toFixed(1)),
+            dailySanityGain,
+            paybackDays,
+            dailyRoi,
             cabin: s2.cabin_vi,
             shortBenefit: `Mở mới: ${shortBenefit}`,
-            effGain,
-            roi: parseFloat(((effGain / Math.max(1, cost)) * 100).toFixed(2))
+            effGain
           });
         }
       }
@@ -633,17 +692,26 @@
           const targetLvl = 60;
           const cost = calculateLevelUpCost(lvl, targetLvl);
           const shortBenefit = getShortSkillBenefit(s1_max.desc_vi || '');
-          const effGain = 10;
+          const effMatch = (s1_max.desc_vi || '').match(/(\d+)%/);
+          const prevMatch = (s1_cur.desc_vi || '').match(/(\d+)%/);
+          const curVal = effMatch ? parseInt(effMatch[1], 10) : 20;
+          const prevVal = prevMatch ? parseInt(prevMatch[1], 10) : 10;
+          const effGain = Math.max(5, curVal - prevVal);
+          const dailySanityGain = calculateDailySanityGain(s1.cabin_vi, effGain);
+          const paybackDays = Math.round(cost / Math.max(0.05, dailySanityGain));
+          const dailyRoi = parseFloat(((dailySanityGain / Math.max(1, cost)) * 100).toFixed(2));
           recs.push({
             name,
             rarity: op.rarity || '5',
             curLvl: lvl,
             targetLvl,
             cost: parseFloat(cost.toFixed(1)),
+            dailySanityGain,
+            paybackDays,
+            dailyRoi,
             cabin: s1.cabin_vi,
             shortBenefit: `Nâng lên: ${shortBenefit}`,
-            effGain,
-            roi: parseFloat(((effGain / Math.max(1, cost)) * 100).toFixed(2))
+            effGain
           });
         }
       }
@@ -654,27 +722,37 @@
           const targetLvl = 80;
           const cost = calculateLevelUpCost(lvl, targetLvl);
           const shortBenefit = getShortSkillBenefit(s2_max.desc_vi || '');
-          const effGain = 10;
+          const effMatch = (s2_max.desc_vi || '').match(/(\d+)%/);
+          const prevMatch = (s2_cur.desc_vi || '').match(/(\d+)%/);
+          const curVal = effMatch ? parseInt(effMatch[1], 10) : 30;
+          const prevVal = prevMatch ? parseInt(prevMatch[1], 10) : 20;
+          const effGain = Math.max(5, curVal - prevVal);
+          const dailySanityGain = calculateDailySanityGain(s2.cabin_vi, effGain);
+          const paybackDays = Math.round(cost / Math.max(0.05, dailySanityGain));
+          const dailyRoi = parseFloat(((dailySanityGain / Math.max(1, cost)) * 100).toFixed(2));
           recs.push({
             name,
             rarity: op.rarity || '5',
             curLvl: lvl,
             targetLvl,
             cost: parseFloat(cost.toFixed(1)),
+            dailySanityGain,
+            paybackDays,
+            dailyRoi,
             cabin: s2.cabin_vi,
             shortBenefit: `Nâng lên: ${shortBenefit}`,
-            effGain,
-            roi: parseFloat(((effGain / Math.max(1, cost)) * 100).toFixed(2))
+            effGain
           });
         }
       }
     }
 
-    recs.sort((a, b) => b.roi - a.roi);
+    // Sắp xếp theo Thời Gian Hoàn Vốn ngắn nhất (Nhanh có lãi Sanity nhất)
+    recs.sort((a, b) => a.paybackDays - b.paybackDays);
     return recs;
   }
 
-  window.A9EOptimizer = {
+  const exported = {
     parseAllOperators,
     assignDistinctRooms,
     calculateTeamMetrics,
@@ -687,4 +765,11 @@
     SANITY_PER_UNIT
   };
 
-})(window);
+  if (typeof window !== 'undefined') {
+    window.A9EOptimizer = exported;
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = exported;
+  }
+
+})(typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this));

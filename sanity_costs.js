@@ -196,6 +196,14 @@
     calculateSanityToMilestone: calculateSanityToMilestone
   };
 
-  global.A9E_SANITY_DATA = A9E_SANITY_DATA;
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = A9E_SANITY_DATA;
+  }
+  if (typeof window !== 'undefined') {
+    window.A9E_SANITY_DATA = A9E_SANITY_DATA;
+  }
+  if (typeof global !== 'undefined') {
+    global.A9E_SANITY_DATA = A9E_SANITY_DATA;
+  }
 
-})(typeof window !== 'undefined' ? window : this);
+})(typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this));
