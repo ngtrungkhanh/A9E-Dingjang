@@ -9,6 +9,19 @@
 (function (window) {
   'use strict';
 
+  // Tỷ lệ Sanity quy đổi trên mỗi đơn vị giờ sản lượng chuẩn (1.0x Base Rate)
+  // Dựa trên dữ liệu 177h46p40s (640,000s) ở hiệu suất 220%:
+  // - Weapon EXP: 40 cái -> 5.4 cái/ngày ở 220% (2.455 cái/ngày ở 100%) -> 11.5508 Sanity/ngày
+  // - Op EXP (61-80): 16 cái -> 2.16 cái/ngày ở 220% (0.982 cái/ngày ở 100%) -> 11.5508 Sanity/ngày
+  // - Growth Chamber: 30% Weapon EXP -> 3.4652 Sanity/ngày ở 100%
+  // - Reception Room: 50% Weapon EXP -> 5.7754 Sanity/ngày ở 100%
+  const SANITY_PER_UNIT = {
+    mfg1: 11.5508 / 24.0,       // ~0.48128 Sanity / đơn vị giờ
+    mfg2: 11.5508 / 24.0,       // ~0.48128 Sanity / đơn vị giờ
+    growth: (11.5508 * 0.3) / 24.0, // ~0.14438 Sanity / đơn vị giờ
+    reception: (11.5508 * 0.5) / 24.0 // ~0.24064 Sanity / đơn vị giờ
+  };
+
   function parseSkillsForCabin(charData, cabinEn, isUserOwned, userUnlockedSkills) {
     const slots = charData.slots || [];
     let buffs = { char_exp: 0, weapon_exp: 0, plant: 0, mineral: 0, fungus: 0, clue: 0 };
@@ -206,8 +219,8 @@
             const labelMap = {
               char_exp: 'EXP Cán Viên',
               weapon_exp: 'EXP Vũ Khí',
-              plant: 'Cây Trồng',
-              mineral: 'Khoáng Sản',
+              plant: 'Cây trồng',
+              mineral: 'Khoáng sản',
               fungus: 'Nấm',
               clue: 'Thu Thập Manh Mối'
             };
@@ -290,6 +303,13 @@
     const shift1Duration = x;
     const shift2Duration = 24 - x;
 
+    const speed1 = (typeof nexusShift1Regen === 'object' && nexusShift1Regen !== null)
+      ? (nexusShift1Regen.realSpeed || 12.0)
+      : (nexusShift1Regen || 12.0);
+    const speed2 = (typeof nexusShift2Regen === 'object' && nexusShift2Regen !== null)
+      ? (nexusShift2Regen.realSpeed || 12.0)
+      : (nexusShift2Regen || 12.0);
+
     const opStamina = {};
     [...teamShift1, ...teamShift2].forEach(op => { opStamina[op.name] = 100.0; });
 
@@ -320,7 +340,7 @@
       // Team 2 NGHỈ NGƠI trong lúc Ca 1 làm việc (HỒI STAMINA theo Nexus Ca 1)
       if (teamShift2.length > 0) {
         teamShift2.forEach(op => {
-          opStamina[op.name] = Math.min(100.0, opStamina[op.name] + shift1Duration * nexusShift1Regen.realSpeed);
+          opStamina[op.name] = Math.min(100.0, opStamina[op.name] + shift1Duration * speed1);
         });
       }
 
@@ -346,7 +366,7 @@
       // Team 1 NGHỈ NGƠI trong lúc Ca 2 làm việc (HỒI STAMINA theo Nexus Ca 2)
       if (teamShift1.length > 0) {
         teamShift1.forEach(op => {
-          opStamina[op.name] = Math.min(100.0, opStamina[op.name] + shift2Duration * nexusShift2Regen.realSpeed);
+          opStamina[op.name] = Math.min(100.0, opStamina[op.name] + shift2Duration * speed2);
         });
       }
     }
@@ -397,18 +417,37 @@
     return { bestX, maxDailyOutput };
   }
 
-  // Tỷ lệ Sanity quy đổi trên mỗi đơn vị giờ sản lượng chuẩn (1.0x Base Rate)
-  // Dựa trên dữ liệu 177h46p40s (640,000s) ở hiệu suất 220%:
-  // - Weapon EXP: 40 cái -> 5.4 cái/ngày ở 220% (2.455 cái/ngày ở 100%) -> 11.5508 Sanity/ngày
-  // - Op EXP (61-80): 16 cái -> 2.16 cái/ngày ở 220% (0.982 cái/ngày ở 100%) -> 11.5508 Sanity/ngày
-  // - Growth Chamber: 30% Weapon EXP -> 3.4652 Sanity/ngày ở 100%
-  // - Reception Room: 50% Weapon EXP -> 5.7754 Sanity/ngày ở 100%
-  const SANITY_PER_UNIT = {
-    mfg1: 11.5508 / 24.0,       // ~0.48128 Sanity / đơn vị giờ
-    mfg2: 11.5508 / 24.0,       // ~0.48128 Sanity / đơn vị giờ
-    growth: (11.5508 * 0.3) / 24.0, // ~0.14438 Sanity / đơn vị giờ
-    reception: (11.5508 * 0.5) / 24.0 // ~0.24064 Sanity / đơn vị giờ
-  };
+  // TÌM GIỜ ĐỔI CA ĐỒNG BỘ TOÀN CĂN CỨ TỐI ƯU NHẤT (SYNCHRONIZED SHIFTS)
+  // Giúp toàn bộ 12 cán viên ca 1 nghỉ ngơi cùng lúc, đón trọn vẹn buff hồi phục của Nexus Ca 2
+  function findOptimalGlobalSyncX(assignment, roomConfigs, cycleDays, nexusShift1Regen, nexusShift2Regen) {
+    let bestX = 12;
+    let maxBaseSanity = -1;
+
+    for (let testX = 8; testX <= 20; testX++) {
+      let totalSan = 0;
+      for (const roomKey of ['mfg1', 'mfg2', 'growth', 'reception']) {
+        if (!assignment[roomKey]) continue;
+        const sim = simulateRoomCycle(
+          roomKey,
+          assignment[roomKey].shift1,
+          assignment[roomKey].shift2,
+          roomConfigs[roomKey].cabin,
+          roomConfigs[roomKey].types,
+          testX,
+          cycleDays,
+          nexusShift1Regen,
+          nexusShift2Regen
+        );
+        totalSan += sim.sanityDaily;
+      }
+      if (totalSan > maxBaseSanity) {
+        maxBaseSanity = totalSan;
+        bestX = testX;
+      }
+    }
+
+    return { bestX, maxBaseSanity: parseFloat(maxBaseSanity.toFixed(1)) };
+  }
 
   function cloneAssignment(a) {
     const res = {};
@@ -568,9 +607,9 @@
 
     if (desc.includes('EXP cán viên')) return `+${val}% EXP Cán Viên`;
     if (desc.includes('EXP vũ khí')) return `+${val}% EXP Vũ Khí`;
-    if (desc.includes('cây trồng')) return `+${val}% Cây Trồng Hóa Đá`;
-    if (desc.includes('khoáng sản')) return `+${val}% Khoáng Sản Quý Hiếm`;
-    if (desc.includes('nấm')) return `+${val}% Vật Chất Nấm`;
+    if (desc.includes('cây trồng')) return `+${val}% Cây trồng`;
+    if (desc.includes('khoáng sản')) return `+${val}% Khoáng sản`;
+    if (desc.includes('nấm')) return `+${val}% Nấm`;
     if (desc.includes('thu thập manh mối')) return `+${val}% Tốc Độ Thu Thập Manh Mối`;
     if (desc.includes('Tái Tạo Tâm Trạng') || desc.includes('Trung Tâm Kiểm Soát')) return `+${val}% Tái Tạo Tâm Trạng (Nexus)`;
     if (desc.includes('Giảm Tâm Trạng') || desc.includes('làm chậm')) return `-${val}% Giảm Hao Tâm Trạng`;
@@ -760,6 +799,7 @@
     simulateRoomCycle,
     findOptimalXForRoom,
     findOptimalNexusX,
+    findOptimalGlobalSyncX,
     getSkillEffectSummary,
     getUpgradeRecommendations,
     SANITY_PER_UNIT

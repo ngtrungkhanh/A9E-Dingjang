@@ -27,19 +27,19 @@
       resourceWeights: "Hệ số ưu tiên từng loại tài nguyên",
       wCharExp: "EXP Cán Viên",
       wWeaponExp: "EXP Vũ Khí",
-      wPlant: "Cây Trồng Hóa Đá (Nông nghiệp)",
-      wMineral: "Khoáng Sản Quý Hiếm",
-      wFungus: "Vật Chất Nấm",
+      wPlant: "Cây trồng",
+      wMineral: "Khoáng sản",
+      wFungus: "Nấm",
       wClue: "Tốc Độ Manh Mối",
       growthTargetTitle: "Mặt hàng Buồng Phát Triển (Có thể chọn 1, 2 hoặc cả 3 loại)",
-      plantTarget: "Cây Trồng Hóa Đá",
-      mineralTarget: "Khoáng Sản Quý Hiếm",
-      fungusTarget: "Vật Chất Nấm",
+      plantTarget: "Cây trồng",
+      mineralTarget: "Khoáng sản",
+      fungusTarget: "Nấm",
       cycleTitle: "Chu kỳ mô phỏng bền vững (Nhập số ngày)",
       cycleDaysLabel: "ngày",
       btnAutoAllX: "⚡ Tự Động Tối Ưu Phân Ca Cho Tất Cả Phòng",
       metricsTitle: "Sản Lượng Trung Bình Hàng Ngày Toàn Căn Cứ",
-      metricDailyOut: "TỔNG SẢN LƯỢNG QUY ĐỔI / NGÀY",
+      metricDailyOut: "TỔNG SẢN LƯỢNG SANITY / NGÀY",
       mfg1Name: "Khoang Sản Xuất 1 (EXP Cán Viên)",
       mfg2Name: "Khoang Sản Xuất 2 (EXP Vũ Khí)",
       growthName: "Buồng Phát Triển (Đa Canh Tác)",
@@ -50,7 +50,7 @@
       staminaSafe: "✓ Trụ hết ca an toàn",
       staminaDepleted: "⚠ Cạn lúc {h}h (nghỉ {rest}h)",
       burnRateLabel: "Hao: {burn}%/h",
-      dailyOutLabel: "Sản lượng: <strong style='color:#38bdf8;'>{san} San/ngày</strong> ({out} đv)",
+      dailyOutLabel: "Sản lượng: <strong style='color:#38bdf8;'>{san} San/ngày</strong>",
       dailyEffLabel: "Hiệu suất TB/ngày: <strong>{eff}%</strong>",
       btnResetDefault: "↺ Mặc định (12h)",
       btnApplyOptimal: "⚡ Đề xuất ({h}h)",
@@ -94,19 +94,19 @@
       resourceWeights: "Resource Priority Weights",
       wCharExp: "Operator EXP",
       wWeaponExp: "Weapon EXP",
-      wPlant: "Petrified Plants (Agriculture)",
-      wMineral: "Rare Minerals",
-      wFungus: "Fungus Materials",
+      wPlant: "Crops",
+      wMineral: "Minerals",
+      wFungus: "Fungus",
       wClue: "Clue Gathering Speed",
       growthTargetTitle: "Growth Chamber Products (Select 1, 2 or all 3)",
-      plantTarget: "Petrified Plants",
-      mineralTarget: "Rare Minerals",
-      fungusTarget: "Fungus Materials",
+      plantTarget: "Crops",
+      mineralTarget: "Minerals",
+      fungusTarget: "Fungus",
       cycleTitle: "Simulation Cycle (Enter Days)",
       cycleDaysLabel: "days",
       btnAutoAllX: "⚡ Auto-Optimize Shift Hours for All Rooms",
       metricsTitle: "Daily Base-Wide Average Production",
-      metricDailyOut: "DAILY TOTAL OUTPUT",
+      metricDailyOut: "DAILY TOTAL SANITY OUTPUT",
       mfg1Name: "MFG Cabin 1 (Operator EXP)",
       mfg2Name: "MFG Cabin 2 (Weapon EXP)",
       growthName: "Growth Chamber (Multi-cultivation)",
@@ -117,7 +117,7 @@
       staminaSafe: "✓ Sustainable Shift",
       staminaDepleted: "⚠ Depleted at {h}h ({rest}h idle)",
       burnRateLabel: "Burn: {burn}%/h",
-      dailyOutLabel: "Output: <strong style='color:#38bdf8;'>{san} San/day</strong> ({out} units)",
+      dailyOutLabel: "Output: <strong style='color:#38bdf8;'>{san} San/day</strong>",
       dailyEffLabel: "Daily Avg Eff: <strong>{eff}%</strong>",
       btnResetDefault: "↺ Default (12h)",
       btnApplyOptimal: "⚡ Optimal ({h}h)",
@@ -257,10 +257,14 @@
       ? A9EOptimizer.getUpgradeRecommendations(state.userData.operators, FULL_SKILLS_DATA)
       : [];
 
-    renderUI(ops, assignment, roomConfigs, simResults, autoXSuggestions, nexusRegen1, nexusRegen2, upgradeRecs);
+    const optimalSync = (typeof A9EOptimizer !== 'undefined' && typeof A9EOptimizer.findOptimalGlobalSyncX === 'function')
+      ? A9EOptimizer.findOptimalGlobalSyncX(assignment, roomConfigs, state.cycleDays, nexusRegen1, nexusRegen2)
+      : { bestX: 18, maxBaseSanity: 127.0 };
+
+    renderUI(ops, assignment, roomConfigs, simResults, autoXSuggestions, nexusRegen1, nexusRegen2, upgradeRecs, optimalSync);
   }
 
-  function renderUI(allOps, assignment, roomConfigs, simResults, autoXSuggestions, nexusRegen1, nexusRegen2, upgradeRecs) {
+  function renderUI(allOps, assignment, roomConfigs, simResults, autoXSuggestions, nexusRegen1, nexusRegen2, upgradeRecs, optimalSync) {
     const appEl = document.getElementById('app');
     if (!appEl) return;
 
@@ -411,27 +415,27 @@
           <div class="metric-box cyan">
             <div class="metric-title">${t('wCharExp')}</div>
             <div class="metric-num" style="color:#38bdf8;">${simResults.mfg1.sanityDaily} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
-            <div class="metric-desc">Sản lượng: ${simResults.mfg1.dailyOutputAvg} đv/ngày</div>
+            <div class="metric-desc">Hiệu suất TB: ${simResults.mfg1.dailyAvgEfficiency}%</div>
           </div>
           <div class="metric-box cyan">
             <div class="metric-title">${t('wWeaponExp')}</div>
             <div class="metric-num" style="color:#38bdf8;">${simResults.mfg2.sanityDaily} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
-            <div class="metric-desc">Sản lượng: ${simResults.mfg2.dailyOutputAvg} đv/ngày</div>
+            <div class="metric-desc">Hiệu suất TB: ${simResults.mfg2.dailyAvgEfficiency}%</div>
           </div>
           <div class="metric-box green">
             <div class="metric-title">${t('growthName')}</div>
             <div class="metric-num" style="color:#34d399;">${simResults.growth.sanityDaily} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
-            <div class="metric-desc">Sản lượng: ${simResults.growth.dailyOutputAvg} đv/ngày</div>
+            <div class="metric-desc">Hiệu suất TB: ${simResults.growth.dailyAvgEfficiency}%</div>
           </div>
           <div class="metric-box purple">
             <div class="metric-title">${t('wClue')}</div>
             <div class="metric-num" style="color:#c084fc;">${simResults.reception.sanityDaily} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
-            <div class="metric-desc">Sản lượng: ${simResults.reception.dailyOutputAvg} đv/ngày</div>
+            <div class="metric-desc">Hiệu suất TB: ${simResults.reception.dailyAvgEfficiency}%</div>
           </div>
           <div class="metric-box">
             <div class="metric-title">Tổng Sanity Căn Cứ</div>
             <div class="metric-num" style="color:#fbbf24;">${parseFloat(totalBaseDailySanity.toFixed(1))} <span style="font-size:0.75rem; font-weight:normal; color:#fde68a;">San/ngày</span></div>
-            <div class="metric-desc">Quy đổi từ ${parseFloat(totalBaseDailyOutput.toFixed(1))} đv sản phẩm/ngày</div>
+            <div class="metric-desc">Toàn bộ 4 khoang sản xuất</div>
           </div>
         </div>
 
@@ -454,6 +458,9 @@
           </div>
         </div>
       </div>
+
+      <!-- THANH ĐIỀU KHIỂN ĐỒNG BỘ ĐỔI CA TOÀN CĂN CỨ (TỐI ƯU CHO CONTROL NEXUS) -->
+      ${renderGlobalSyncShiftCard(optimalSync, nexusRegen2)}
 
       <!-- DANH SÁCH 5 PHÒNG (NEXUS ĐẦU TIÊN) -->
       <div class="rooms-container">
@@ -484,7 +491,53 @@
       </footer>
     `;
 
-    bindEvents(autoXSuggestions, nexusRegen1, nexusRegen2);
+    bindEvents(autoXSuggestions, nexusRegen1, nexusRegen2, optimalSync);
+  }
+
+  // Render Thanh Điều Khiển Đồng Bộ Đổi Ca Toàn Trạm
+  function renderGlobalSyncShiftCard(optimalSync, nexusRegen2) {
+    const isAllSync = (state.roomX.mfg1 === state.roomX.mfg2 && state.roomX.mfg1 === state.roomX.growth && state.roomX.mfg1 === state.roomX.reception);
+    const currentSyncX = state.roomX.mfg1 || 12;
+
+    return `
+      <div class="glass-panel" style="padding:1rem 1.25rem; margin-bottom:1.5rem; border:1px solid rgba(6,182,212,0.35); background:rgba(6,182,212,0.05); border-left:4px solid var(--accent-cyan);">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+          <div>
+            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+              <span style="font-size:1.15rem;">🔄</span>
+              <h3 style="font-size:1.05rem; color:#fff; font-weight:700;">
+                Đồng Bộ Đổi Ca Toàn Trạm (Tối Ưu Control Nexus)
+              </h3>
+              ${isAllSync ? `<span class="badge-tag" style="background:rgba(52,211,153,0.15); color:#34d399; font-size:0.75rem;">✓ Đang đồng bộ (${currentSyncX}h)</span>` : `<span class="badge-tag" style="background:rgba(245,158,11,0.15); color:var(--accent-orange); font-size:0.75rem;">⚠ Đang lệch giờ</span>`}
+            </div>
+            <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">
+              Đổi ca cùng lúc giúp toàn bộ 12 cán viên Ca 1 về nghỉ ngơi cùng một khung giờ, đón trọn vẹn buff hồi phục <strong style="color:var(--accent-cyan);">+${nexusRegen2.totalBuffPct}%</strong> (${nexusRegen2.realSpeed}%/h) của Control Nexus Ca 2.
+            </p>
+          </div>
+
+          <!-- ĐIỀU KHIỂN ĐỒNG BỘ TOÀN CĂN CỨ -->
+          <div style="display:flex; align-items:center; flex-wrap:wrap; gap:0.5rem; background:rgba(15,23,42,0.85); padding:0.4rem 0.75rem; border-radius:8px; border:1px solid var(--border-color);">
+            <div style="display:flex; align-items:center; gap:0.35rem;">
+              <span style="font-size:0.8rem; color:var(--text-secondary);">Giờ đổi ca chung:</span>
+              <input type="number" id="globalSyncXInput" min="1" max="23" value="${currentSyncX}" style="width:50px; text-align:center; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:0.25rem 0.35rem; font-family:var(--font-mono); font-weight:700; font-size:0.9rem;" />
+              <span style="font-size:0.8rem; color:var(--text-secondary);">h</span>
+            </div>
+
+            <button id="btnResetSyncDefault" class="btn-group-btn" style="padding:0.25rem 0.6rem; font-size:0.75rem;">
+              ↺ Mặc định (12h)
+            </button>
+
+            <button id="btnApplyOptimalSync" class="btn-secondary" style="padding:0.25rem 0.65rem; font-size:0.75rem; color:#fbbf24; border-color:rgba(251,191,36,0.4); font-weight:700;">
+              ⚡ Đồng bộ tối ưu (${optimalSync.bestX}h)
+            </button>
+          </div>
+        </div>
+
+        <div style="font-size:0.78rem; font-family:var(--font-mono); color:var(--text-muted); margin-top:0.6rem;">
+          • Lịch trình chung: Ca 1 làm việc từ 00:00 ➔ ${currentSyncX}:00 (${currentSyncX}h) | Ca 2 làm việc từ ${currentSyncX}:00 ➔ 24:00 (${24 - currentSyncX}h)
+        </div>
+      </div>
+    `;
   }
 
   // Render Card cho Phòng Sản Xuất (Ô nhập số giờ + Nút Mặc định 12h + Nút Đề xuất)
@@ -500,7 +553,7 @@
               <span>🏢</span> ${roomTitle}
             </h3>
             <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">
-              ${t('dailyOutLabel', { out: simRes.dailyOutputAvg, san: simRes.sanityDaily })} | ${t('dailyEffLabel', { eff: simRes.dailyAvgEfficiency })}
+              ${t('dailyOutLabel', { san: simRes.sanityDaily })} | ${t('dailyEffLabel', { eff: simRes.dailyAvgEfficiency })}
             </div>
           </div>
 
@@ -706,11 +759,11 @@
               <div style="font-family:var(--font-mono); font-weight:700; font-size:0.9rem; color:#f87171;">${r.cost} San</div>
             </div>
             <div>
-              <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase;">Thu Thêm</div>
+              <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase;">Sanity thêm / ngày</div>
               <div style="font-family:var(--font-mono); font-weight:700; font-size:0.9rem; color:#38bdf8;">+${r.dailySanityGain} San/ngày</div>
             </div>
             <div style="background:rgba(52, 211, 153, 0.1); border:1px solid rgba(52, 211, 153, 0.3); border-radius:6px; padding:0.25rem 0.55rem;">
-              <div style="font-size:0.68rem; color:#34d399; text-transform:uppercase; font-weight:700;">Hoàn Vốn</div>
+              <div style="font-size:0.68rem; color:#34d399; text-transform:uppercase; font-weight:700;">Số ngày hồi vốn</div>
               <div style="font-family:var(--font-mono); font-weight:800; font-size:1.05rem; color:#34d399;">⚡ ${r.paybackDays} ngày</div>
             </div>
           </div>
@@ -793,7 +846,7 @@
     `;
   }
 
-  function bindEvents(autoXSuggestions, nexusRegen1, nexusRegen2) {
+  function bindEvents(autoXSuggestions, nexusRegen1, nexusRegen2, optimalSync) {
     const stamInput = document.getElementById('quickStaminaInput');
     const stamRes = document.getElementById('quickStaminaResult');
     function updateQuickStam() {
@@ -867,7 +920,43 @@
       };
     }
 
-    // Ô NHẬP SỐ GIỜ
+    // ĐỒNG BỘ ĐỔI CA TOÀN CĂN CỨ
+    const syncInput = document.getElementById('globalSyncXInput');
+    if (syncInput) {
+      syncInput.onchange = (e) => {
+        const val = Math.max(1, Math.min(23, parseInt(e.target.value, 10) || 12));
+        ['nexus', 'mfg1', 'mfg2', 'growth', 'reception'].forEach(rk => {
+          state.roomX[rk] = val;
+        });
+        saveSettings();
+        updateOptimizer();
+      };
+    }
+
+    const btnResetSync = document.getElementById('btnResetSyncDefault');
+    if (btnResetSync) {
+      btnResetSync.onclick = () => {
+        ['nexus', 'mfg1', 'mfg2', 'growth', 'reception'].forEach(rk => {
+          state.roomX[rk] = 12;
+        });
+        saveSettings();
+        updateOptimizer();
+      };
+    }
+
+    const btnApplyOptimalSync = document.getElementById('btnApplyOptimalSync');
+    if (btnApplyOptimalSync) {
+      btnApplyOptimalSync.onclick = () => {
+        const bestX = (optimalSync && optimalSync.bestX) || 18;
+        ['nexus', 'mfg1', 'mfg2', 'growth', 'reception'].forEach(rk => {
+          state.roomX[rk] = bestX;
+        });
+        saveSettings();
+        updateOptimizer();
+      };
+    }
+
+    // Ô NHẬP SỐ GIỜ TỪNG PHÒNG
     document.querySelectorAll('.room-x-input').forEach(inp => {
       inp.onchange = (e) => {
         const rKey = e.target.getAttribute('data-room');
@@ -903,9 +992,10 @@
     const btnAutoAll = document.getElementById('btnAutoAllRooms');
     if (btnAutoAll) {
       btnAutoAll.onclick = () => {
-        for (const rKey in autoXSuggestions) {
-          state.roomX[rKey] = autoXSuggestions[rKey].bestX;
-        }
+        const bestX = (optimalSync && optimalSync.bestX) || 18;
+        ['nexus', 'mfg1', 'mfg2', 'growth', 'reception'].forEach(rk => {
+          state.roomX[rk] = bestX;
+        });
         saveSettings();
         updateOptimizer();
       };
