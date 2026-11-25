@@ -494,7 +494,7 @@
     bindEvents(autoXSuggestions, nexusRegen1, nexusRegen2, optimalSync);
   }
 
-  // Render Thanh Điều Khiển Đồng Bộ Đổi Ca Toàn Trạm
+  // Render Thanh Điều Khiển Đổi Ca (Tối Ưu Tự Động vs Đồng Bộ Toàn Trạm)
   function renderGlobalSyncShiftCard(optimalSync, nexusRegen2) {
     const isAllSync = (state.roomX.mfg1 === state.roomX.mfg2 && state.roomX.mfg1 === state.roomX.growth && state.roomX.mfg1 === state.roomX.reception);
     const currentSyncX = state.roomX.mfg1 || 12;
@@ -504,37 +504,35 @@
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
           <div>
             <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-              <span style="font-size:1.15rem;">🔄</span>
+              <span style="font-size:1.15rem;">⚡</span>
               <h3 style="font-size:1.05rem; color:#fff; font-weight:700;">
-                Đồng Bộ Đổi Ca Toàn Trạm (Tối Ưu Control Nexus)
+                Chiến Lược Đổi Ca Căn Cứ (In-game Tự Động Đổi Ca)
               </h3>
-              ${isAllSync ? `<span class="badge-tag" style="background:rgba(52,211,153,0.15); color:#34d399; font-size:0.75rem;">✓ Đang đồng bộ (${currentSyncX}h)</span>` : `<span class="badge-tag" style="background:rgba(245,158,11,0.15); color:var(--accent-orange); font-size:0.75rem;">⚠ Đang lệch giờ</span>`}
+              ${isAllSync ? `<span class="badge-tag" style="background:rgba(6,182,212,0.15); color:#38bdf8; font-size:0.75rem;">Đang đồng bộ (${currentSyncX}h)</span>` : `<span class="badge-tag" style="background:rgba(52,211,153,0.15); color:#34d399; font-size:0.75rem;">✓ Đang tối ưu tự động theo phòng</span>`}
             </div>
             <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">
-              Đổi ca cùng lúc giúp toàn bộ 12 cán viên Ca 1 về nghỉ ngơi cùng một khung giờ, đón trọn vẹn buff hồi phục <strong style="color:var(--accent-cyan);">+${nexusRegen2.totalBuffPct}%</strong> (${nexusRegen2.realSpeed}%/h) của Control Nexus Ca 2.
+              Do in-game tự động đổi ca, <strong>Tối ưu tự động theo phòng</strong> đạt sản lượng cao nhất (<strong>130.5 San/ngày</strong>). Khoang SX trụ được 19h nhờ skill giảm hao, trong khi Buồng Nuôi Trồng cạn pin lúc 13.9h. Nexus Ca 2 (+${nexusRegen2.totalBuffPct}%) chỉ mất 5.6h nghỉ là sạc đầy 100% pin cho bất kỳ ai về nghỉ.
             </p>
           </div>
 
-          <!-- ĐIỀU KHIỂN ĐỒNG BỘ TOÀN CĂN CỨ -->
-          <div style="display:flex; align-items:center; flex-wrap:wrap; gap:0.5rem; background:rgba(15,23,42,0.85); padding:0.4rem 0.75rem; border-radius:8px; border:1px solid var(--border-color);">
-            <div style="display:flex; align-items:center; gap:0.35rem;">
-              <span style="font-size:0.8rem; color:var(--text-secondary);">Giờ đổi ca chung:</span>
-              <input type="number" id="globalSyncXInput" min="1" max="23" value="${currentSyncX}" style="width:50px; text-align:center; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:0.25rem 0.35rem; font-family:var(--font-mono); font-weight:700; font-size:0.9rem;" />
-              <span style="font-size:0.8rem; color:var(--text-secondary);">h</span>
-            </div>
-
-            <button id="btnResetSyncDefault" class="btn-group-btn" style="padding:0.25rem 0.6rem; font-size:0.75rem;">
-              ↺ Mặc định (12h)
+          <!-- CÁC NÚT ÁP DỤNG NHANH -->
+          <div style="display:flex; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+            <button id="btnApplyAutoOptimalRooms" class="btn-primary" style="padding:0.35rem 0.75rem; font-size:0.8rem; background:linear-gradient(135deg, #059669, #10b981); border:none; color:#fff; font-weight:700;">
+              ⚡ Tối Ưu Tự Động (130.5 San)
             </button>
 
-            <button id="btnApplyOptimalSync" class="btn-secondary" style="padding:0.25rem 0.65rem; font-size:0.75rem; color:#fbbf24; border-color:rgba(251,191,36,0.4); font-weight:700;">
-              ⚡ Đồng bộ tối ưu (${optimalSync.bestX}h)
+            <button id="btnApplyOptimalSync" class="btn-secondary" style="padding:0.35rem 0.65rem; font-size:0.8rem; color:#fbbf24; border-color:rgba(251,191,36,0.4); font-weight:700;">
+              🔄 Đồng Bộ Cùng Lúc (${optimalSync.bestX}h)
+            </button>
+
+            <button id="btnResetSyncDefault" class="btn-group-btn" style="padding:0.35rem 0.6rem; font-size:0.8rem;">
+              ↺ Mặc định (12h)
             </button>
           </div>
         </div>
 
-        <div style="font-size:0.78rem; font-family:var(--font-mono); color:var(--text-muted); margin-top:0.6rem;">
-          • Lịch trình chung: Ca 1 làm việc từ 00:00 ➔ ${currentSyncX}:00 (${currentSyncX}h) | Ca 2 làm việc từ ${currentSyncX}:00 ➔ 24:00 (${24 - currentSyncX}h)
+        <div style="font-size:0.78rem; font-family:var(--font-mono); color:var(--text-muted); margin-top:0.6rem; border-top:1px dashed rgba(255,255,255,0.08); padding-top:0.5rem;">
+          • Giờ đề xuất tự động từng phòng: SX 1 (19h) | SX 2 (19h) | Buồng Trồng (14h) | Tiếp Khách (20h) | Nexus (14h)
         </div>
       </div>
     `;
@@ -956,6 +954,17 @@
       };
     }
 
+    const btnApplyAutoRooms = document.getElementById('btnApplyAutoOptimalRooms');
+    if (btnApplyAutoRooms) {
+      btnApplyAutoRooms.onclick = () => {
+        for (const rKey in autoXSuggestions) {
+          state.roomX[rKey] = autoXSuggestions[rKey].bestX;
+        }
+        saveSettings();
+        updateOptimizer();
+      };
+    }
+
     // Ô NHẬP SỐ GIỜ TỪNG PHÒNG
     document.querySelectorAll('.room-x-input').forEach(inp => {
       inp.onchange = (e) => {
@@ -992,10 +1001,9 @@
     const btnAutoAll = document.getElementById('btnAutoAllRooms');
     if (btnAutoAll) {
       btnAutoAll.onclick = () => {
-        const bestX = (optimalSync && optimalSync.bestX) || 18;
-        ['nexus', 'mfg1', 'mfg2', 'growth', 'reception'].forEach(rk => {
-          state.roomX[rk] = bestX;
-        });
+        for (const rKey in autoXSuggestions) {
+          state.roomX[rKey] = autoXSuggestions[rKey].bestX;
+        }
         saveSettings();
         updateOptimizer();
       };
