@@ -468,20 +468,17 @@
         ${renderNexusCard('nexus', t('nexusName'), assignment.nexus, state.roomX.nexus || 12, nexusRegen1, nexusRegen2, autoXSuggestions.nexus)}
         
         <!-- 2. KHOANG SX 1 -->
-        ${renderRoomCard('mfg1', t('mfg1Name'), assignment.mfg1, simResults.mfg1, autoXSuggestions.mfg1, 'MFG Cabin', ['char_exp'])}
+        ${renderRoomCard('mfg1', t('mfg1Name'), assignment.mfg1, simResults.mfg1, autoXSuggestions.mfg1, 'MFG Cabin', ['char_exp'], nexusRegen1, nexusRegen2)}
         
         <!-- 3. KHOANG SX 2 -->
-        ${renderRoomCard('mfg2', t('mfg2Name'), assignment.mfg2, simResults.mfg2, autoXSuggestions.mfg2, 'MFG Cabin', ['weapon_exp'])}
+        ${renderRoomCard('mfg2', t('mfg2Name'), assignment.mfg2, simResults.mfg2, autoXSuggestions.mfg2, 'MFG Cabin', ['weapon_exp'], nexusRegen1, nexusRegen2)}
         
         <!-- 4. BUỒNG PHÁT TRIỂN -->
-        ${renderRoomCard('growth', t('growthName'), assignment.growth, simResults.growth, autoXSuggestions.growth, 'Growth Chamber', roomConfigs.growth.types)}
+        ${renderRoomCard('growth', t('growthName'), assignment.growth, simResults.growth, autoXSuggestions.growth, 'Growth Chamber', roomConfigs.growth.types, nexusRegen1, nexusRegen2)}
         
         <!-- 5. PHÒNG TIẾP KHÁCH -->
-        ${renderRoomCard('reception', t('receptionName'), assignment.reception, simResults.reception, autoXSuggestions.reception, 'Reception Room', ['clue'])}
+        ${renderRoomCard('reception', t('receptionName'), assignment.reception, simResults.reception, autoXSuggestions.reception, 'Reception Room', ['clue'], nexusRegen1, nexusRegen2)}
       </div>
-
-      <!-- BẢNG KIỂM ĐỊNH ĐỘ BỀN VỮNG STAMINA TOÀN CĂN CỨ (100% ĐẦY PIN QUAY VÒNG) -->
-      ${renderStaminaAuditCard(roomConfigs, assignment, simResults, nexusRegen1, nexusRegen2)}
 
       <!-- ĐỀ XUẤT NÂNG CẤP CÁN VIÊN (ĐƯA XUỐNG DƯỚI CÙNG & GẬP MỞ ACCORDION) -->
       ${renderCollapsibleUpgradeRecommendationsHtml(upgradeRecs)}
@@ -537,8 +534,64 @@
     `;
   }
 
+  // Hàm tính toán kiểm định Stamina chu kỳ quay vòng cho từng ca trực
+  function calculateShiftStaminaCycle(workHours, burnRate, restHours, regenSpeed) {
+    const burned = workHours * burnRate;
+    const remStam = Math.max(0, 100 - burned);
+    const recovered = restHours * regenSpeed;
+    const netDelta = recovered - burned;
+    const endStam = Math.min(100, remStam + recovered);
+
+    // Trường hợp tiêu hao vượt quá 100% ngay trong ca làm việc
+    if (burned >= 100) {
+      const hoursUntilDepleted = (100 / burnRate).toFixed(1);
+      return {
+        isSafe: false,
+        burned,
+        remStam: 0,
+        recovered,
+        netDelta,
+        endStam,
+        safeLoops: 0,
+        failMessage: `Kiệt sức ngay ca đầu (sau ${hoursUntilDepleted}h)`
+      };
+    }
+
+    // Trường hợp hồi phục đủ hoặc dư Stamina đã tiêu hao -> luôn đạt 100% pin mỗi chu kỳ
+    if (recovered >= burned) {
+      return {
+        isSafe: true,
+        burned,
+        remStam,
+        recovered,
+        netDelta,
+        endStam: 100,
+        safeLoops: Infinity,
+        failMessage: ''
+      };
+    }
+
+    // Trường hợp thiếu hụt Stamina sau mỗi chu kỳ (loss = burned - recovered > 0)
+    // Chu kỳ 1: còn remStam, sạc được recovered -> pin kết thúc = remStam + recovered = 100 - loss.
+    // Chu kỳ k: pin đầu ca = 100 - (k - 1) * loss. Để đủ pin làm hết ca, cần: pin đầu ca >= burned
+    // <=> 100 - (k - 1) * loss >= burned <=> (k - 1) * loss <= 100 - burned = remStam
+    // <=> k - 1 <= Math.floor(remStam / loss) => k_safe = Math.floor(remStam / loss) + 1
+    const lossPerCycle = burned - recovered;
+    const safeLoops = Math.floor(remStam / lossPerCycle) + 1;
+    return {
+      isSafe: false,
+      burned,
+      remStam,
+      recovered,
+      netDelta,
+      endStam,
+      safeLoops,
+      failMessage: `Sau ${safeLoops} vòng lặp sẽ không đủ Stamina`
+    };
+  }
+
   // Render Card cho Phòng Sản Xuất (Ô nhập số giờ + Nút Mặc định 12h + Nút Đề xuất)
-  function renderRoomCard(roomKey, roomTitle, roomAssignment, simRes, autoX, cabinEn, targetTypes) {
+  function renderRoomCard(roomKey, roomTitle, roomAssignment, simRes, autoX, cabinEn, targetTypes, nexusRegen1, nexusRegen2) {
     const x = simRes.x;
     const remain = 24 - x;
 
@@ -548,9 +601,33 @@
     const startStr = (startHour < 10 ? '0' : '') + startHour + ':00';
     const endStr = (syncEndHour < 10 ? '0' : '') + syncEndHour + ':00';
 
+    const reg1Speed = nexusRegen1 ? nexusRegen1.realSpeed : 12.0;
+    const reg2Speed = nexusRegen2 ? nexusRegen2.realSpeed : 12.0;
+
+    // Ca 1 làm x tiếng (burn1), nghỉ remain tiếng dưới Nexus Ca 2 (reg2Speed)
+    const st1 = calculateShiftStaminaCycle(x, simRes.m1.actualBurnRate, remain, reg2Speed);
+    // Ca 2 làm remain tiếng (burn2), nghỉ x tiếng dưới Nexus Ca 1 (reg1Speed)
+    const st2 = calculateShiftStaminaCycle(remain, simRes.m2.actualBurnRate, x, reg1Speed);
+
+    const isRoomSafe = st1.isSafe && st2.isSafe;
+    let roomBadgeHtml = '';
+    if (isRoomSafe) {
+      roomBadgeHtml = `<span style="color:#34d399; font-weight:700; font-size:0.75rem;">✓ Chu kỳ xoay vòng an toàn 100% Stamina</span>`;
+    } else {
+      const minSafeLoops = Math.min(st1.safeLoops, st2.safeLoops);
+      const warnText = minSafeLoops === 0
+        ? '⚠️ Cán viên sẽ kiệt sức ngay trong ca đầu!'
+        : `⚠️ Sau ${minSafeLoops} vòng lặp sẽ không đủ Stamina!`;
+      roomBadgeHtml = `
+        <span style="color:#f87171; font-weight:700; font-size:0.75rem; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); padding:0.15rem 0.45rem; border-radius:4px;">
+          ${warnText}
+        </span>
+      `;
+    }
+
     return `
       <div class="glass-panel" style="padding:1.25rem; margin-bottom:1.5rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:0.75rem; margin-bottom:1rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:0.75rem; margin-bottom:0.75rem;">
           <div>
             <h3 style="font-size:1.1rem; color:#fff; display:flex; align-items:center; gap:0.5rem;">
               <span>🏢</span> ${roomTitle}
@@ -578,8 +655,12 @@
           </div>
         </div>
 
-        <div style="font-size:0.78rem; font-family:var(--font-mono); color:var(--text-muted); margin-bottom:0.75rem;">
-          • Lịch trình neo mốc 19:00: Ca 1 (${startStr} ➔ ${endStr} - ${x}h) | Ca 2 (${endStr} ➔ ${startStr} - ${remain}h)
+        <!-- THÔNG TIN LỊCH TRÌNH VÀ BỀN VỮNG CHU KỲ (TƯƠNG TỰ CONTROL NEXUS) -->
+        <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:0.55rem 0.85rem; margin-bottom:0.85rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+          <div style="font-size:0.8rem; font-family:var(--font-mono); color:#38bdf8;">
+            ⏱ <strong>Lịch trình (Giao ca 19:00): Ca 1 (${startStr} ➔ ${endStr} - ${x}h) | Ca 2 (${endStr} ➔ ${startStr} - ${remain}h)</strong>
+          </div>
+          ${roomBadgeHtml}
         </div>
 
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:1rem;">
@@ -591,9 +672,22 @@
             <div class="operator-chips">
               ${renderOperatorChipsWithSkills(roomAssignment.shift1, cabinEn, targetTypes)}
             </div>
-            <div class="room-stamina-status">
-              <span>${t('burnRateLabel', { burn: simRes.m1.actualBurnRate })}</span>
-              ${simRes.depletedHourShift1 ? `<span class="stamina-depleted">${t('staminaDepleted', { h: simRes.depletedHourShift1, rest: (x - simRes.depletedHourShift1).toFixed(1) })}</span>` : `<span class="stamina-ok">${t('staminaSafe')}</span>`}
+            <div class="room-stamina-status" style="flex-direction:column; gap:0.35rem; border-top:1px solid rgba(255,255,255,0.06); padding-top:0.5rem; margin-top:0.6rem; font-size:0.75rem; font-family:var(--font-mono);">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:var(--text-secondary);">Đi làm (${x}h):</span>
+                <span style="color:#f87171; font-weight:600;">-${st1.burned.toFixed(1)}% <span style="font-weight:normal; color:var(--text-muted);">(${simRes.m1.actualBurnRate}%/h)</span> | Còn: ${st1.remStam.toFixed(1)}%</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:var(--text-secondary);">Nghỉ ngơi (${remain}h):</span>
+                <span style="color:#38bdf8; font-weight:600;">+${st1.recovered.toFixed(1)}% <span style="font-weight:normal; color:var(--text-muted);">(Nexus: ${reg2Speed}%/h)</span></span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding-top:0.25rem; border-top:1px dashed rgba(255,255,255,0.08);">
+                <span style="color:var(--text-secondary);">Pin vào ca mới:</span>
+                ${st1.isSafe 
+                  ? `<span style="color:#34d399; font-weight:700;">${st1.endStam.toFixed(1)}% (✓ Đầy 100% Pin)</span>`
+                  : `<span style="color:#f87171; font-weight:700;">${st1.endStam.toFixed(1)}% (${st1.safeLoops === 0 ? 'Kiệt sức ca đầu' : `Sau ${st1.safeLoops} vòng sẽ cạn`})</span>`
+                }
+              </div>
             </div>
           </div>
 
@@ -605,9 +699,22 @@
             <div class="operator-chips">
               ${renderOperatorChipsWithSkills(roomAssignment.shift2, cabinEn, targetTypes)}
             </div>
-            <div class="room-stamina-status">
-              <span>${t('burnRateLabel', { burn: simRes.m2.actualBurnRate })}</span>
-              ${simRes.depletedHourShift2 ? `<span class="stamina-depleted">${t('staminaDepleted', { h: simRes.depletedHourShift2, rest: (remain - (simRes.depletedHourShift2 - x)).toFixed(1) })}</span>` : `<span class="stamina-ok">${t('staminaSafe')}</span>`}
+            <div class="room-stamina-status" style="flex-direction:column; gap:0.35rem; border-top:1px solid rgba(255,255,255,0.06); padding-top:0.5rem; margin-top:0.6rem; font-size:0.75rem; font-family:var(--font-mono);">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:var(--text-secondary);">Đi làm (${remain}h):</span>
+                <span style="color:#f87171; font-weight:600;">-${st2.burned.toFixed(1)}% <span style="font-weight:normal; color:var(--text-muted);">(${simRes.m2.actualBurnRate}%/h)</span> | Còn: ${st2.remStam.toFixed(1)}%</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:var(--text-secondary);">Nghỉ ngơi (${x}h):</span>
+                <span style="color:#38bdf8; font-weight:600;">+${st2.recovered.toFixed(1)}% <span style="font-weight:normal; color:var(--text-muted);">(Nexus: ${reg1Speed}%/h)</span></span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding-top:0.25rem; border-top:1px dashed rgba(255,255,255,0.08);">
+                <span style="color:var(--text-secondary);">Pin vào ca mới:</span>
+                ${st2.isSafe 
+                  ? `<span style="color:#34d399; font-weight:700;">${st2.endStam.toFixed(1)}% (✓ Đầy 100% Pin)</span>`
+                  : `<span style="color:#f87171; font-weight:700;">${st2.endStam.toFixed(1)}% (${st2.safeLoops === 0 ? 'Kiệt sức ca đầu' : `Sau ${st2.safeLoops} vòng sẽ cạn`})</span>`
+                }
+              </div>
             </div>
           </div>
         </div>
@@ -621,8 +728,29 @@
     const isShift2Stronger = nexusRegen2.totalBuffPct >= nexusRegen1.totalBuffPct;
     const strongShiftName = isShift2Stronger ? 'Ca 2' : 'Ca 1';
     const strongBuff = Math.max(nexusRegen1.totalBuffPct, nexusRegen2.totalBuffPct);
-    const isDepletedShift1 = x > 13.8;
-    const isDepletedShift2 = remain > 13.8;
+
+    const reg1Speed = nexusRegen1 ? nexusRegen1.realSpeed : 12.0;
+    const reg2Speed = nexusRegen2 ? nexusRegen2.realSpeed : 12.0;
+
+    // Nexus hao cố định 7.2%/h
+    const stNexus1 = calculateShiftStaminaCycle(x, 7.2, remain, reg2Speed);
+    const stNexus2 = calculateShiftStaminaCycle(remain, 7.2, x, reg1Speed);
+
+    const isNexusSafe = stNexus1.isSafe && stNexus2.isSafe;
+    let nexusBadgeHtml = '';
+    if (isNexusSafe) {
+      nexusBadgeHtml = `<span style="color:#34d399; font-weight:700; font-size:0.75rem;">✓ Chu kỳ xoay vòng an toàn 100% Stamina</span>`;
+    } else {
+      const minSafeNexus = Math.min(stNexus1.safeLoops, stNexus2.safeLoops);
+      const warnText = minSafeNexus === 0
+        ? '⚠️ Cán viên Nexus kiệt sức ngay ca đầu (trực >13.8h)! Nên giữ 12h/12h.'
+        : `⚠️ Sau ${minSafeNexus} vòng lặp Nexus sẽ không đủ Stamina!`;
+      nexusBadgeHtml = `
+        <span style="color:#f87171; font-weight:700; font-size:0.75rem; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); padding:0.15rem 0.45rem; border-radius:4px;">
+          ${warnText}
+        </span>
+      `;
+    }
 
     return `
       <div class="glass-panel" style="padding:1.25rem; margin-bottom:1.5rem; border-left:4px solid var(--accent-cyan);">
@@ -660,13 +788,7 @@
             <div style="font-family:var(--font-mono); color:#38bdf8;">
               ⏱ <strong>Lịch trình Nexus: Ca 1 (${x}h: 07:00 ➔ 19:00) | Ca 2 (${remain}h: 19:00 ➔ 07:00)</strong>
             </div>
-            ${(isDepletedShift1 || isDepletedShift2) ? `
-              <span style="color:#f87171; font-weight:700; font-size:0.75rem; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); padding:0.15rem 0.45rem; border-radius:4px;">
-                ⚠️ Cán viên Nexus hao 7.2%/h cố định, trực >13.8h sẽ kiệt sức! Nên giữ 12h/12h.
-              </span>
-            ` : `
-              <span style="color:#34d399; font-weight:700; font-size:0.75rem;">✓ Chu kỳ xoay vòng an toàn 100% Stamina</span>
-            `}
+            ${nexusBadgeHtml}
           </div>
           <div style="color:var(--text-secondary); margin-top:4px;">
             💡 <em>Cơ chế phối hợp chuẩn:</em> Toàn bộ cán viên Ca 1 sản xuất đổi ca về nghỉ lúc <strong>19:00</strong>. Do đó, <strong>Ca 2 (${strongShiftName} buff +${strongBuff}%)</strong> túc trực suốt <strong>19:00 ➔ 07:00 (${remain} tiếng)</strong> để bao trọn giấc ngủ và sạc siêu tốc cho toàn bộ cán viên sản xuất. Ban ngày (<strong>07:00 ➔ 19:00</strong>), <strong>Ca 1 (buff +${nexusRegen1.totalBuffPct}%)</strong> túc trực duy trì căn cứ!
@@ -680,9 +802,26 @@
               <span class="room-eff-badge">+${nexusRegen1.totalBuffPct}% Regen</span>
             </div>
             <div class="operator-chips">${renderOperatorChipsWithSkills(roomAssignment.shift1, 'Control Nexus', ['nexus'])}</div>
-            <div class="room-stamina-status">
-              <span>Tốc độ hồi trạm: ${nexusRegen1.realSpeed}%/h</span>
-              ${isDepletedShift1 ? `<span class="stamina-depleted">Kiệt sức sau 13.9h</span>` : `<span class="stamina-ok">Tiêu hao: ${(x * 7.2).toFixed(1)}% (An toàn)</span>`}
+            <div class="room-stamina-status" style="flex-direction:column; gap:0.35rem; border-top:1px solid rgba(255,255,255,0.06); padding-top:0.5rem; margin-top:0.6rem; font-size:0.75rem; font-family:var(--font-mono);">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:var(--text-secondary);">Tốc độ hồi căn cứ:</span>
+                <span style="color:#38bdf8; font-weight:700;">${reg1Speed}%/h (+${nexusRegen1.totalBuffPct}%)</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:var(--text-secondary);">Đi làm (${x}h):</span>
+                <span style="color:#f87171; font-weight:600;">-${stNexus1.burned.toFixed(1)}% (7.2%/h) | Còn: ${stNexus1.remStam.toFixed(1)}%</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:var(--text-secondary);">Nghỉ ngơi (${remain}h):</span>
+                <span style="color:#38bdf8; font-weight:600;">+${stNexus1.recovered.toFixed(1)}% (Nexus: ${reg2Speed}%/h)</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding-top:0.25rem; border-top:1px dashed rgba(255,255,255,0.08);">
+                <span style="color:var(--text-secondary);">Pin vào ca mới:</span>
+                ${stNexus1.isSafe 
+                  ? `<span style="color:#34d399; font-weight:700;">${stNexus1.endStam.toFixed(1)}% (✓ Đầy 100% Pin)</span>`
+                  : `<span style="color:#f87171; font-weight:700;">${stNexus1.endStam.toFixed(1)}% (${stNexus1.safeLoops === 0 ? 'Kiệt sức ca đầu' : `Sau ${stNexus1.safeLoops} vòng sẽ cạn`})</span>`
+                }
+              </div>
             </div>
           </div>
 
@@ -692,9 +831,26 @@
               <span class="room-eff-badge" style="background:rgba(6, 182, 212, 0.15); color:#38bdf8; border-color:rgba(6, 182, 212, 0.3);">+${nexusRegen2.totalBuffPct}% Regen</span>
             </div>
             <div class="operator-chips">${renderOperatorChipsWithSkills(roomAssignment.shift2, 'Control Nexus', ['nexus'])}</div>
-            <div class="room-stamina-status">
-              <span>Tốc độ hồi trạm: ${nexusRegen2.realSpeed}%/h</span>
-              ${isDepletedShift2 ? `<span class="stamina-depleted">Kiệt sức sau 13.9h</span>` : `<span class="stamina-ok">Tiêu hao: ${(remain * 7.2).toFixed(1)}% (An toàn)</span>`}
+            <div class="room-stamina-status" style="flex-direction:column; gap:0.35rem; border-top:1px solid rgba(255,255,255,0.06); padding-top:0.5rem; margin-top:0.6rem; font-size:0.75rem; font-family:var(--font-mono);">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:var(--text-secondary);">Tốc độ hồi căn cứ:</span>
+                <span style="color:#38bdf8; font-weight:700;">${reg2Speed}%/h (+${nexusRegen2.totalBuffPct}%)</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:var(--text-secondary);">Đi làm (${remain}h):</span>
+                <span style="color:#f87171; font-weight:600;">-${stNexus2.burned.toFixed(1)}% (7.2%/h) | Còn: ${stNexus2.remStam.toFixed(1)}%</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:var(--text-secondary);">Nghỉ ngơi (${x}h):</span>
+                <span style="color:#38bdf8; font-weight:600;">+${stNexus2.recovered.toFixed(1)}% (Nexus: ${reg1Speed}%/h)</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding-top:0.25rem; border-top:1px dashed rgba(255,255,255,0.08);">
+                <span style="color:var(--text-secondary);">Pin vào ca mới:</span>
+                ${stNexus2.isSafe 
+                  ? `<span style="color:#34d399; font-weight:700;">${stNexus2.endStam.toFixed(1)}% (✓ Đầy 100% Pin)</span>`
+                  : `<span style="color:#f87171; font-weight:700;">${stNexus2.endStam.toFixed(1)}% (${stNexus2.safeLoops === 0 ? 'Kiệt sức ca đầu' : `Sau ${stNexus2.safeLoops} vòng sẽ cạn`})</span>`
+                }
+              </div>
             </div>
           </div>
         </div>
@@ -818,130 +974,7 @@
     `;
   }
 
-  // Render Bảng Kiểm Định Chu Kỳ Xoay Vòng Stamina Toàn Căn Cứ
-  function renderStaminaAuditCard(roomConfigs, assignment, simResults, nexusRegen1, nexusRegen2) {
-    const rooms = [
-      { key: 'mfg1', name: 'Khoang SX 1 (EXP Cán Viên)' },
-      { key: 'mfg2', name: 'Khoang SX 2 (EXP Vũ Khí)' },
-      { key: 'growth', name: 'Buồng Nuôi Trồng (Nông Nghiệp)' },
-      { key: 'reception', name: 'Phòng Tiếp Khách (Manh Mối)' },
-      { key: 'nexus', name: 'Trung Tâm Kiểm Soát (Nexus)' }
-    ];
 
-    const reg1Speed = nexusRegen1 ? nexusRegen1.realSpeed : 12.0;
-    const reg2Speed = nexusRegen2 ? nexusRegen2.realSpeed : 12.0;
-
-    let allSustainable = true;
-    const tableRows = [];
-
-    rooms.forEach(r => {
-      const x = state.roomX[r.key] || 12;
-      const remain = 24 - x;
-      const t1 = assignment[r.key] ? assignment[r.key].shift1 : [];
-      const t2 = assignment[r.key] ? assignment[r.key].shift2 : [];
-      const m1 = simResults[r.key] ? simResults[r.key].m1 : { actualBurnRate: 7.2 };
-      const m2 = simResults[r.key] ? simResults[r.key].m2 : { actualBurnRate: 7.2 };
-
-      // Ca 1: Làm x tiếng, nghỉ remain tiếng dưới Nexus Ca 2 (Đêm: reg2Speed)
-      const burn1 = x * m1.actualBurnRate;
-      const rem1 = Math.max(0, 100 - burn1);
-      const rec1 = remain * reg2Speed;
-      const end1 = Math.min(100, rem1 + rec1);
-      const ok1 = (rec1 >= burn1);
-      if (!ok1) allSustainable = false;
-
-      // Ca 2: Làm remain tiếng, nghỉ x tiếng dưới Nexus Ca 1 (Ngày: reg1Speed)
-      const burn2 = remain * m2.actualBurnRate;
-      const rem2 = Math.max(0, 100 - burn2);
-      const rec2 = x * reg1Speed;
-      const end2 = Math.min(100, rem2 + rec2);
-      const ok2 = (rec2 >= burn2);
-      if (!ok2) allSustainable = false;
-
-      tableRows.push(`
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.8rem;">
-          <td rowspan="2" style="padding:0.6rem 0.75rem; font-weight:700; color:#fff; vertical-align:middle; border-right:1px solid rgba(255,255,255,0.06); background:rgba(15,23,42,0.4);">
-            ${r.name}
-          </td>
-          <td style="padding:0.45rem 0.6rem; color:var(--accent-orange); font-weight:700;">
-            Ca 1 <span style="font-weight:normal; font-size:0.72rem; color:var(--text-secondary);">(${x}h)</span>
-          </td>
-          <td style="padding:0.45rem 0.6rem; color:var(--text-secondary); font-size:0.75rem;">
-            ${t1.map(o => o.name).join(', ')}
-          </td>
-          <td style="padding:0.45rem 0.6rem; font-family:var(--font-mono); color:#f87171;">
-            -${burn1.toFixed(1)}% <span style="font-size:0.7rem; color:var(--text-muted);">(${m1.actualBurnRate}%/h)</span>
-          </td>
-          <td style="padding:0.45rem 0.6rem; font-family:var(--font-mono); color:#38bdf8;">
-            +${rec1.toFixed(1)}% <span style="font-size:0.7rem; color:var(--text-muted);">(Nghỉ ${remain}h @ ${reg2Speed}%/h)</span>
-          </td>
-          <td style="padding:0.45rem 0.6rem; font-family:var(--font-mono); font-weight:800; color:${ok1 ? '#34d399' : '#f87171'};">
-            ${end1.toFixed(1)}%
-          </td>
-          <td style="padding:0.45rem 0.6rem; text-align:center;">
-            ${ok1 ? '<span style="color:#34d399; font-weight:700; font-size:0.78rem;">✓ Đầy 100% Pin</span>' : '<span style="color:#f87171; font-weight:700; font-size:0.78rem;">⚠️ Thiếu Stamina</span>'}
-          </td>
-        </tr>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.1); font-size:0.8rem; background:rgba(255,255,255,0.02);">
-          <td style="padding:0.45rem 0.6rem; color:var(--accent-cyan); font-weight:700;">
-            Ca 2 <span style="font-weight:normal; font-size:0.72rem; color:var(--text-secondary);">(${remain}h)</span>
-          </td>
-          <td style="padding:0.45rem 0.6rem; color:var(--text-secondary); font-size:0.75rem;">
-            ${t2.map(o => o.name).join(', ')}
-          </td>
-          <td style="padding:0.45rem 0.6rem; font-family:var(--font-mono); color:#f87171;">
-            -${burn2.toFixed(1)}% <span style="font-size:0.7rem; color:var(--text-muted);">(${m2.actualBurnRate}%/h)</span>
-          </td>
-          <td style="padding:0.45rem 0.6rem; font-family:var(--font-mono); color:#38bdf8;">
-            +${rec2.toFixed(1)}% <span style="font-size:0.7rem; color:var(--text-muted);">(Nghỉ ${x}h @ ${reg1Speed}%/h)</span>
-          </td>
-          <td style="padding:0.45rem 0.6rem; font-family:var(--font-mono); font-weight:800; color:${ok2 ? '#34d399' : '#f87171'};">
-            ${end2.toFixed(1)}%
-          </td>
-          <td style="padding:0.45rem 0.6rem; text-align:center;">
-            ${ok2 ? '<span style="color:#34d399; font-weight:700; font-size:0.78rem;">✓ Đầy 100% Pin</span>' : '<span style="color:#f87171; font-weight:700; font-size:0.78rem;">⚠️ Thiếu Stamina</span>'}
-          </td>
-        </tr>
-      `);
-    });
-
-    return `
-      <div class="glass-panel" style="padding:1.25rem; margin-bottom:1.5rem; border-left:4px solid #10b981;">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.85rem;">
-          <div>
-            <h3 style="font-size:1.05rem; color:#fff; display:flex; align-items:center; gap:0.5rem;">
-              <span>🛡️</span> Kiểm Định Độ Bền Vững Stamina Trong Chu Kỳ (Đầy 100% Sau Mỗi Chu Kỳ)
-            </h3>
-            <p style="font-size:0.78rem; color:var(--text-secondary); margin-top:2px;">
-              Tính toán chi tiết Stamina tiêu hao khi đi làm và Stamina phục hồi khi nghỉ ngơi. Sau mỗi chu kỳ 24h, ca vào làm luôn đạt 100% pin.
-            </p>
-          </div>
-          <span class="badge-tag" style="background:${allSustainable ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}; color:${allSustainable ? '#34d399' : '#f87171'}; font-size:0.75rem; font-weight:700;">
-            ${allSustainable ? '✓ Tất cả 5 phòng quay vòng vĩnh cửu (100% Pin)' : '⚠️ Có phòng bị thiếu Stamina trong chu kỳ'}
-          </span>
-        </div>
-
-        <div style="overflow-x:auto;">
-          <table style="width:100%; border-collapse:collapse; text-align:left;">
-            <thead>
-              <tr style="border-bottom:1px solid rgba(255,255,255,0.1); font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); background:rgba(15,23,42,0.6);">
-                <th style="padding:0.5rem 0.75rem;">Khoang Phòng</th>
-                <th style="padding:0.5rem 0.6rem;">Ca Trực</th>
-                <th style="padding:0.5rem 0.6rem;">Nhân Sự</th>
-                <th style="padding:0.5rem 0.6rem;">Tiêu Hao Đi Làm</th>
-                <th style="padding:0.5rem 0.6rem;">Hồi Phục Khi Nghỉ</th>
-                <th style="padding:0.5rem 0.6rem;">Pin Chu Kỳ Mới</th>
-                <th style="padding:0.5rem 0.6rem; text-align:center;">Trạng Thái</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${tableRows.join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  }
 
   function renderModalHtml() {
     return `
