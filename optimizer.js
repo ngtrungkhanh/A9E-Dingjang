@@ -557,21 +557,12 @@
   }
 
   // Tối ưu mốc đổi ca cho Control Nexus:
-  // Cân đối thời gian đổi ca của Nexus sao cho ca Nexus mạnh nhất (Ca 2) bắt đầu sớm đủ để đón
-  // các đợt đổi ca về nghỉ của các cán viên Ca 1 chủ lực ở các phòng sản xuất
+  // Cán viên Nexus có tốc độ hao cố định 7.2%/h (không có skill giảm hao), tối đa làm việc được 100 / 7.2 = 13.88h.
+  // Do đó mốc chia ca bền vững, tối ưu và an toàn tuyệt đối nhất cho Nexus là 12h / 12h:
+  // - Ca Tối Ưu (+48% Regen): Trực 19:00 ➔ 07:00 (12 tiếng) để bao trọn khung giờ nghỉ của Ca 1 các phòng sản xuất.
+  // - Ca Dự Bị (+24%~32% Regen): Trực 07:00 ➔ 19:00 (12 tiếng) ban ngày.
   function findOptimalNexusX(roomXSettings) {
-    const prodXValues = [
-      roomXSettings.mfg1 || 12,
-      roomXSettings.mfg2 || 12,
-      roomXSettings.growth || 12,
-      roomXSettings.reception || 12
-    ];
-    // Sắp xếp các mốc đổi ca sản xuất tăng dần
-    prodXValues.sort((a, b) => a - b);
-    // Chọn mốc sớm nhất khi phòng sản xuất đầu tiên đổi ca về nghỉ (giới hạn an toàn từ 8h đến 14h)
-    // để khi các cán viên Ca 1 sản xuất bắt đầu về nghỉ thì Nexus Ca 2 (+buff lớn nhất) đã sẵn sàng túc trực!
-    const earliestProdX = prodXValues[0];
-    return Math.max(8, Math.min(14, earliestProdX));
+    return 12;
   }
 
   // TÍNH TOÁN CHI PHÍ SANITY/STAMINA THEO BẢNG QUY ĐỔI CHUẨN (A9E_SANITY_DATA)
@@ -617,25 +608,29 @@
   }
 
   function calculateDailySanityGain(cabinVi, effGain) {
-    // Giả định trung bình ca làm việc 13h/ngày cho cán viên
-    const avgShiftHours = 13.0;
+    // Hệ số đội hình 3 người nền trong Arknights Endfield: 1.0 + 0.4 * 3 = 2.2 (220%)
+    // Khi cán viên tăng +X% buff cá nhân, hiệu suất phòng tăng tương ứng: 2.2 * X%
+    const teamBaseMultiplier = 2.2;
+
     if (cabinVi.includes('Sản Xuất') || cabinVi.includes('Manufacturing')) {
-      // 1 đv sản lượng EXP = 0.48128 Sanity. Cứ +100% hiệu suất sinh ra 1 đv/h
-      return parseFloat((avgShiftHours * (effGain / 100) * 0.48128).toFixed(2));
+      // Ca 1 chủ lực làm việc ~18-19h/ngày. 1 đv sản lượng EXP = 0.48128 Sanity.
+      // Ví dụ +10% cá nhân => phòng tăng 22% hiệu suất => 18.5h * 0.22 * 0.48128 = ~1.96 Sanity/ngày
+      return parseFloat((18.5 * (effGain / 100.0) * teamBaseMultiplier * 0.48128).toFixed(2));
     }
     if (cabinVi.includes('Buồng Phát Triển') || cabinVi.includes('Growth')) {
-      // 1 đv sản lượng Buồng Phát Triển = 0.14438 Sanity
-      return parseFloat((avgShiftHours * (effGain / 100) * 0.14438).toFixed(2));
+      // Ca 1 Buồng Phát Triển làm việc ~14h/ngày. 1 đv sản lượng = 0.14438 Sanity
+      return parseFloat((14.0 * (effGain / 100.0) * teamBaseMultiplier * 0.14438).toFixed(2));
     }
     if (cabinVi.includes('Tiếp Khách') || cabinVi.includes('Reception')) {
-      // 1 đv sản lượng Tiếp Khách = 0.24064 Sanity
-      return parseFloat((avgShiftHours * (effGain / 100) * 0.24064).toFixed(2));
+      // Ca 1 Tiếp Khách làm việc ~19h/ngày. 1 đv sản lượng = 0.24064 Sanity
+      return parseFloat((19.0 * (effGain / 100.0) * teamBaseMultiplier * 0.24064).toFixed(2));
     }
     if (cabinVi.includes('Kiểm Soát') || cabinVi.includes('Nexus')) {
-      // Nexus buff +12% hồi phục giúp các cán viên hồi phục nhanh hơn, tăng thời gian làm việc toàn trạm
-      return 1.25;
+      // Nexus buff +12%~16% hồi phục cho toàn bộ 12 cán viên thuộc 4 khoang sản xuất khi nghỉ ngơi,
+      // giúp duy trì ca làm việc dài 18-19h mà không bị kiệt sức
+      return 2.10;
     }
-    return 1.0;
+    return 1.5;
   }
 
   // Đề xuất nâng cấp: QUY ĐỔI SANITY & XẾP THEO THỜI GIAN HOÀN VỐN NGẮN NHẤT
@@ -681,6 +676,8 @@
           const dailySanityGain = calculateDailySanityGain(s1.cabin_vi, effGain);
           const paybackDays = Math.round(cost / Math.max(0.05, dailySanityGain));
           const dailyRoi = parseFloat(((dailySanityGain / Math.max(1, cost)) * 100).toFixed(2));
+          const tier = paybackDays <= 120 ? 'fast' : (paybackDays <= 365 ? 'medium' : 'long');
+          const tierLabel = paybackDays <= 120 ? '⚡ Hoàn vốn nhanh' : (paybackDays <= 365 ? '🔷 Hợp lý' : '🔶 Dài hạn (Đi kèm Combat)');
           recs.push({
             name,
             rarity: op.rarity || '5',
@@ -690,6 +687,8 @@
             dailySanityGain,
             paybackDays,
             dailyRoi,
+            tier,
+            tierLabel,
             cabin: s1.cabin_vi,
             shortBenefit: `Mở mới: ${shortBenefit}`,
             effGain
@@ -709,6 +708,8 @@
           const dailySanityGain = calculateDailySanityGain(s2.cabin_vi, effGain);
           const paybackDays = Math.round(cost / Math.max(0.05, dailySanityGain));
           const dailyRoi = parseFloat(((dailySanityGain / Math.max(1, cost)) * 100).toFixed(2));
+          const tier = paybackDays <= 120 ? 'fast' : (paybackDays <= 365 ? 'medium' : 'long');
+          const tierLabel = paybackDays <= 120 ? '⚡ Hoàn vốn nhanh' : (paybackDays <= 365 ? '🔷 Hợp lý' : '🔶 Dài hạn (Đi kèm Combat)');
           recs.push({
             name,
             rarity: op.rarity || '5',
@@ -718,6 +719,8 @@
             dailySanityGain,
             paybackDays,
             dailyRoi,
+            tier,
+            tierLabel,
             cabin: s2.cabin_vi,
             shortBenefit: `Mở mới: ${shortBenefit}`,
             effGain
@@ -739,6 +742,8 @@
           const dailySanityGain = calculateDailySanityGain(s1.cabin_vi, effGain);
           const paybackDays = Math.round(cost / Math.max(0.05, dailySanityGain));
           const dailyRoi = parseFloat(((dailySanityGain / Math.max(1, cost)) * 100).toFixed(2));
+          const tier = paybackDays <= 120 ? 'fast' : (paybackDays <= 365 ? 'medium' : 'long');
+          const tierLabel = paybackDays <= 120 ? '⚡ Hoàn vốn nhanh' : (paybackDays <= 365 ? '🔷 Hợp lý' : '🔶 Dài hạn (Đi kèm Combat)');
           recs.push({
             name,
             rarity: op.rarity || '5',
@@ -748,6 +753,8 @@
             dailySanityGain,
             paybackDays,
             dailyRoi,
+            tier,
+            tierLabel,
             cabin: s1.cabin_vi,
             shortBenefit: `Nâng lên: ${shortBenefit}`,
             effGain
@@ -769,6 +776,8 @@
           const dailySanityGain = calculateDailySanityGain(s2.cabin_vi, effGain);
           const paybackDays = Math.round(cost / Math.max(0.05, dailySanityGain));
           const dailyRoi = parseFloat(((dailySanityGain / Math.max(1, cost)) * 100).toFixed(2));
+          const tier = paybackDays <= 120 ? 'fast' : (paybackDays <= 365 ? 'medium' : 'long');
+          const tierLabel = paybackDays <= 120 ? '⚡ Hoàn vốn nhanh' : (paybackDays <= 365 ? '🔷 Hợp lý' : '🔶 Dài hạn (Đi kèm Combat)');
           recs.push({
             name,
             rarity: op.rarity || '5',
@@ -778,6 +787,8 @@
             dailySanityGain,
             paybackDays,
             dailyRoi,
+            tier,
+            tierLabel,
             cabin: s2.cabin_vi,
             shortBenefit: `Nâng lên: ${shortBenefit}`,
             effGain

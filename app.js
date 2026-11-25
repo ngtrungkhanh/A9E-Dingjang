@@ -621,8 +621,9 @@
     const remain = 24 - x;
     const isShift2Stronger = nexusRegen2.totalBuffPct >= nexusRegen1.totalBuffPct;
     const strongShiftName = isShift2Stronger ? 'Ca 2' : 'Ca 1';
-    const strongHours = isShift2Stronger ? `${x}:00 ➔ 24:00` : `00:00 ➔ ${x}:00`;
     const strongBuff = Math.max(nexusRegen1.totalBuffPct, nexusRegen2.totalBuffPct);
+    const isDepletedShift1 = x > 13.8;
+    const isDepletedShift2 = remain > 13.8;
 
     return `
       <div class="glass-panel" style="padding:1.25rem; margin-bottom:1.5rem; border-left:4px solid var(--accent-cyan);">
@@ -648,44 +649,53 @@
               ${t('btnResetDefault')}
             </button>
 
-            <button class="btn-secondary btn-auto-room-x" data-room="${roomKey}" style="padding:0.25rem 0.6rem; font-size:0.75rem; color:#fbbf24; border-color:rgba(251,191,36,0.4);" title="Đề xuất theo giờ nghỉ của các khoang">
-              ${t('btnApplyOptimal', { h: autoX.bestX })}
+            <button class="btn-secondary btn-auto-room-x" data-room="${roomKey}" style="padding:0.25rem 0.6rem; font-size:0.75rem; color:#fbbf24; border-color:rgba(251,191,36,0.4);" title="Đề xuất 12h/12h cân bằng bền vững cho Nexus">
+              ${t('btnApplyOptimal', { h: 12 })}
             </button>
           </div>
         </div>
 
         <!-- THÔNG TIN THAY CA & CHIẾN LƯỢC PHỐI HỢP -->
-        <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:0.5rem 0.85rem; margin-bottom:0.85rem; font-size:0.8rem; line-height:1.5;">
-          <div style="font-family:var(--font-mono); color:#38bdf8;">
-            ⏱ <strong>Thời gian thay ca Nexus: lúc ${x}:00</strong> (Ca 1: 00:00 ➔ ${x}:00 | Ca 2: ${x}:00 ➔ 24:00)
+        <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:0.6rem 0.85rem; margin-bottom:0.85rem; font-size:0.8rem; line-height:1.5;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+            <div style="font-family:var(--font-mono); color:#38bdf8;">
+              ⏱ <strong>Lịch trình Nexus: Ca 1 (${x}h: 07:00 ➔ 19:00) | Ca 2 (${remain}h: 19:00 ➔ 07:00)</strong>
+            </div>
+            ${(isDepletedShift1 || isDepletedShift2) ? `
+              <span style="color:#f87171; font-weight:700; font-size:0.75rem; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); padding:0.15rem 0.45rem; border-radius:4px;">
+                ⚠️ Cán viên Nexus hao 7.2%/h cố định, trực >13.8h sẽ kiệt sức! Nên giữ 12h/12h.
+              </span>
+            ` : `
+              <span style="color:#34d399; font-weight:700; font-size:0.75rem;">✓ Chu kỳ xoay vòng an toàn 100% Stamina</span>
+            `}
           </div>
-          <div style="color:var(--text-secondary); margin-top:2px;">
-            💡 <em>Chiến lược chuẩn:</em> Ca 1 sản xuất (chủ lực) làm việc từ 00:00 ➔ x:00 và bắt đầu về nghỉ ngơi từ ${x}:00 ➔ 24:00. Do đó, ca Nexus mạnh nhất (<strong>${strongShiftName} buff +${strongBuff}%</strong>) được bố trí trực từ <strong>${strongHours}</strong> để đón và tiếp sức hồi phục tối đa cho các cán viên chủ lực khi họ nghỉ ngơi!
+          <div style="color:var(--text-secondary); margin-top:4px;">
+            💡 <em>Cơ chế phối hợp chuẩn:</em> Toàn bộ cán viên Ca 1 sản xuất đổi ca về nghỉ lúc <strong>19:00</strong>. Do đó, <strong>Ca 2 (${strongShiftName} buff +${strongBuff}%)</strong> túc trực suốt <strong>19:00 ➔ 07:00 (${remain} tiếng)</strong> để bao trọn giấc ngủ và sạc siêu tốc cho toàn bộ cán viên sản xuất. Ban ngày (<strong>07:00 ➔ 19:00</strong>), <strong>Ca 1 (buff +${nexusRegen1.totalBuffPct}%)</strong> túc trực duy trì căn cứ!
           </div>
         </div>
 
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:1rem;">
           <div style="background:rgba(245, 158, 11, 0.05); border:1px solid rgba(245, 158, 11, 0.2); border-radius:8px; padding:0.85rem;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-              <span style="font-size:0.82rem; font-weight:700; color:var(--accent-orange);">☀️ Ca 1 (00:00 ➔ ${x}:00) - 3 Slots</span>
+              <span style="font-size:0.82rem; font-weight:700; color:var(--accent-orange);">☀️ Ca 1 (07:00 ➔ 19:00 - ${x}h) - Ca Ban Ngày</span>
               <span class="room-eff-badge">+${nexusRegen1.totalBuffPct}% Regen</span>
             </div>
             <div class="operator-chips">${renderOperatorChipsWithSkills(roomAssignment.shift1, 'Control Nexus', ['nexus'])}</div>
             <div class="room-stamina-status">
-              <span>${roomAssignment.shift1.length}/3 Cán viên trực</span>
-              <span class="stamina-ok">Tốc độ hồi: ${nexusRegen1.realSpeed}%/h</span>
+              <span>Tốc độ hồi trạm: ${nexusRegen1.realSpeed}%/h</span>
+              ${isDepletedShift1 ? `<span class="stamina-depleted">Kiệt sức sau 13.9h</span>` : `<span class="stamina-ok">Tiêu hao: ${(x * 7.2).toFixed(1)}% (An toàn)</span>`}
             </div>
           </div>
 
           <div style="background:rgba(6, 182, 212, 0.05); border:1px solid rgba(6, 182, 212, 0.2); border-radius:8px; padding:0.85rem;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-              <span style="font-size:0.82rem; font-weight:700; color:var(--accent-cyan);">🌙 Ca 2 (${x}:00 ➔ 24:00) - 3 Slots</span>
+              <span style="font-size:0.82rem; font-weight:700; color:var(--accent-cyan);">🌙 Ca 2 (19:00 ➔ 07:00 - ${remain}h) - Ca Đêm / Tối Ưu</span>
               <span class="room-eff-badge" style="background:rgba(6, 182, 212, 0.15); color:#38bdf8; border-color:rgba(6, 182, 212, 0.3);">+${nexusRegen2.totalBuffPct}% Regen</span>
             </div>
             <div class="operator-chips">${renderOperatorChipsWithSkills(roomAssignment.shift2, 'Control Nexus', ['nexus'])}</div>
             <div class="room-stamina-status">
-              <span>${roomAssignment.shift2.length}/3 Cán viên trực</span>
-              <span class="stamina-ok">Tốc độ hồi: ${nexusRegen2.realSpeed}%/h</span>
+              <span>Tốc độ hồi trạm: ${nexusRegen2.realSpeed}%/h</span>
+              ${isDepletedShift2 ? `<span class="stamina-depleted">Kiệt sức sau 13.9h</span>` : `<span class="stamina-ok">Tiêu hao: ${(remain * 7.2).toFixed(1)}% (An toàn)</span>`}
             </div>
           </div>
         </div>
@@ -750,6 +760,9 @@
                 <span class="op-star">★${r.rarity}</span>
                 <span>${r.name}</span>
                 <span class="badge-tag" style="background:rgba(6,182,212,0.15); color:#38bdf8; font-size:0.75rem;">Lv.${r.curLvl} ➔ Lv.${r.targetLvl}</span>
+                <span class="badge-tag" style="background:${r.tier === 'fast' ? 'rgba(52,211,153,0.15)' : (r.tier === 'medium' ? 'rgba(6,182,212,0.15)' : 'rgba(245,158,11,0.15)')}; color:${r.tier === 'fast' ? '#34d399' : (r.tier === 'medium' ? '#38bdf8' : '#fbbf24')}; font-size:0.75rem;">
+                  ${r.tierLabel}
+                </span>
               </div>
               <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:3px;">
                 <span style="color:var(--text-muted);">[${r.cabin}]</span> <strong style="color:#fbbf24;">${r.shortBenefit}</strong>
@@ -791,6 +804,9 @@
         </div>
 
         <div id="recContentBody" style="display:${state.showRecDetails ? 'flex' : 'none'}; flex-direction:column; gap:0.6rem; margin-top:1rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,0.06);">
+          <div style="background:rgba(245, 158, 11, 0.08); border:1px solid rgba(245, 158, 11, 0.2); border-radius:6px; padding:0.6rem 0.85rem; font-size:0.78rem; color:var(--text-secondary); line-height:1.5;">
+            💡 <strong>Lưu ý về Thời gian hồi vốn (ROI):</strong> Đội hình hiện tại của bạn đã mở khóa hết các mốc cơ bản (Lv 20 - vốn 44 San, hoàn vốn sau ~25 ngày). Các đề xuất còn lại là mốc Đột Phá E3/E4 (Lv 60, Lv 80) tốn từ 550 đến 1.695 Sanity (tương đương 21 lượt đi ải 80 Sanity). Các mốc này chủ yếu nâng để phục vụ <strong>Chiến Đấu (Combat)</strong>, kỹ năng căn cứ là lợi ích kèm theo nên thời gian hoàn vốn thuần căn cứ sẽ dài hơn.
+          </div>
           ${listHtml}
         </div>
       </div>
@@ -952,9 +968,10 @@
     if (btnApplyOptimalSync) {
       btnApplyOptimalSync.onclick = () => {
         const bestX = (optimalSync && optimalSync.bestX) || 18;
-        ['nexus', 'mfg1', 'mfg2', 'growth', 'reception'].forEach(rk => {
+        ['mfg1', 'mfg2', 'growth', 'reception'].forEach(rk => {
           state.roomX[rk] = bestX;
         });
+        state.roomX['nexus'] = 12; // Nexus duy trì 12h cân bằng bền vững, tránh kiệt sức và đón trọn ca đêm
         saveSettings();
         updateOptimizer();
       };
