@@ -1,22 +1,18 @@
 /**
- * A9E Dingjang Logistics Optimizer Core
+ * A9E Dingjang Logistics Optimizer Core (v2.0)
  * Author: Antigravity
- * Thuật toán tối ưu hóa phân ca và bố trí cán viên cho Arknights: Endfield
+ * Tính toán phân ca độc lập từng phòng, 1 cán viên chỉ ở 1 phòng, công thức Nexus chuẩn xác
  */
 
 (function (window) {
   'use strict';
 
-  // Trích xuất chỉ số kỹ năng từ mô tả
+  // Chuẩn hóa kỹ năng của 1 cán viên
   function parseSkillsForCabin(charData, cabinEn, isUserOwned, userUnlockedSkills) {
     const slots = charData.slots || [];
-    let bestBuffs = { char_exp: 0, weapon_exp: 0, plant: 0, mineral: 0, fungus: 0, clue: 0 };
-    let bestRed = 0;
-    let bestRegen = 0;
-    let skillNameVi = '';
-    let skillNameEn = '';
-    let skillDescVi = '';
-    let skillDescEn = '';
+    let buffs = { char_exp: 0, weapon_exp: 0, plant: 0, mineral: 0, fungus: 0, clue: 0 };
+    let red = 0;
+    let regen = 0;
 
     for (const slot of slots) {
       if (slot.cabin_en !== cabinEn) continue;
@@ -36,42 +32,30 @@
 
       if (!chosenLevel) continue;
 
-      skillNameVi = chosenLevel.name_vi || chosenLevel.name_en;
-      skillNameEn = chosenLevel.name_en;
-      skillDescVi = chosenLevel.desc_vi || '';
-      skillDescEn = chosenLevel.desc_en || '';
-
-      const pcts = (skillDescVi.match(/(\d+)%/g) || []).map(p => parseInt(p, 10));
+      const desc = chosenLevel.desc_vi || chosenLevel.desc_en || '';
+      const pcts = (desc.match(/(\d+)%/g) || []).map(p => parseInt(p, 10));
       const val = pcts.length > 0 ? pcts[0] : 0;
 
-      if (cabinEn === 'Control Nexus' || skillDescVi.includes('Tái Tạo Tâm Trạng')) {
-        bestRegen = Math.max(bestRegen, val);
-      } else if (skillDescVi.includes('Giảm Tâm Trạng') || skillDescVi.includes('làm chậm')) {
-        bestRed = Math.max(bestRed, val);
+      if (cabinEn === 'Control Nexus' || desc.includes('Tái Tạo Tâm Trạng')) {
+        regen = Math.max(regen, val);
+      } else if (desc.includes('Giảm Tâm Trạng') || desc.includes('làm chậm')) {
+        red = Math.max(red, val);
       } else {
-        if (skillDescVi.includes('EXP cán viên')) bestBuffs.char_exp = Math.max(bestBuffs.char_exp, val);
-        if (skillDescVi.includes('EXP vũ khí')) bestBuffs.weapon_exp = Math.max(bestBuffs.weapon_exp, val);
-        if (skillDescVi.includes('cây trồng')) bestBuffs.plant = Math.max(bestBuffs.plant, val);
-        if (skillDescVi.includes('khoáng sản')) bestBuffs.mineral = Math.max(bestBuffs.mineral, val);
-        if (skillDescVi.includes('nấm')) bestBuffs.fungus = Math.max(bestBuffs.fungus, val);
-        if (cabinEn === 'Reception Room' || skillDescVi.includes('thu thập manh mối')) {
-          bestBuffs.clue = Math.max(bestBuffs.clue, val);
+        if (desc.includes('EXP cán viên')) buffs.char_exp = Math.max(buffs.char_exp, val);
+        if (desc.includes('EXP vũ khí')) buffs.weapon_exp = Math.max(buffs.weapon_exp, val);
+        if (desc.includes('cây trồng')) buffs.plant = Math.max(buffs.plant, val);
+        if (desc.includes('khoáng sản')) buffs.mineral = Math.max(buffs.mineral, val);
+        if (desc.includes('nấm')) buffs.fungus = Math.max(buffs.fungus, val);
+        if (cabinEn === 'Reception Room' || desc.includes('thu thập manh mối')) {
+          buffs.clue = Math.max(buffs.clue, val);
         }
       }
     }
 
-    return {
-      buffs: bestBuffs,
-      red: bestRed,
-      regen: bestRegen,
-      nameVi: skillNameVi,
-      nameEn: skillNameEn,
-      descVi: skillDescVi,
-      descEn: skillDescEn
-    };
+    return { buffs, red, regen };
   }
 
-  // Chuẩn hóa toàn bộ danh sách cán viên
+  // Lọc và parse toàn bộ danh sách cán viên
   function parseAllOperators(fullSkillsData, userRosterData, useUserRoster) {
     const list = [];
     const userOpMap = {};
@@ -83,38 +67,29 @@
     }
 
     for (const char of fullSkillsData) {
-      // Bỏ qua nhân vật không có kỹ năng căn cứ (Endministrator, M3, Mimino, Warfarin...)
-      if (!char.slots || char.slots.length === 0) {
-        continue;
-      }
+      if (!char.slots || char.slots.length === 0) continue; // Bỏ nhân vật không có kỹ năng
 
       const name = char.name;
       const isOwned = Boolean(userOpMap[name]);
 
       if (useUserRoster && !isOwned) {
-        continue; // Chỉ lấy nhân vật người dùng có
+        continue;
       }
 
       const unlockedSkills = isOwned ? (userOpMap[name].spaceshipSkills || []) : null;
       const opDetail = isOwned ? userOpMap[name] : null;
-
-      const mfg = parseSkillsForCabin(char, 'MFG Cabin', useUserRoster, unlockedSkills);
-      const growth = parseSkillsForCabin(char, 'Growth Chamber', useUserRoster, unlockedSkills);
-      const reception = parseSkillsForCabin(char, 'Reception Room', useUserRoster, unlockedSkills);
-      const nexus = parseSkillsForCabin(char, 'Control Nexus', useUserRoster, unlockedSkills);
 
       list.push({
         id: char.id,
         name: name,
         rarity: opDetail ? opDetail.rarity : (char.rarity || '5'),
         level: opDetail ? opDetail.level : 90,
-        evolvePhase: opDetail ? opDetail.evolvePhase : 4,
         weapon: opDetail ? opDetail.weapon : null,
         skills: {
-          'MFG Cabin': mfg,
-          'Growth Chamber': growth,
-          'Reception Room': reception,
-          'Control Nexus': nexus
+          'MFG Cabin': parseSkillsForCabin(char, 'MFG Cabin', useUserRoster, unlockedSkills),
+          'Growth Chamber': parseSkillsForCabin(char, 'Growth Chamber', useUserRoster, unlockedSkills),
+          'Reception Room': parseSkillsForCabin(char, 'Reception Room', useUserRoster, unlockedSkills),
+          'Control Nexus': parseSkillsForCabin(char, 'Control Nexus', useUserRoster, unlockedSkills)
         }
       });
     }
@@ -122,101 +97,90 @@
     return list;
   }
 
-  // Tính điểm đánh giá của 1 cán viên cho 1 phòng cụ thể
-  function evaluateOperatorForRoom(op, cabinEn, targetType, weight) {
-    const cabinSkill = op.skills[cabinEn];
-    if (!cabinSkill) return 0;
-
-    let buff = 0;
-    if (cabinSkill.buffs && cabinSkill.buffs[targetType] !== undefined) {
-      buff = cabinSkill.buffs[targetType];
-    }
-    const red = cabinSkill.red || 0;
-    const regen = cabinSkill.regen || 0;
+  // Đánh giá điểm phù hợp của cán viên đối với phòng
+  function evaluateOperatorForRoom(op, cabinEn, targetTypes, weights) {
+    const sk = op.skills[cabinEn];
+    if (!sk) return 0;
 
     if (cabinEn === 'Control Nexus') {
-      return regen * (weight || 1.0);
+      return (sk.regen || 0) * (weights.nexus || 1.0);
     }
 
-    // Điểm số kết hợp giữa % buff sản lượng và % giảm hao (giảm hao cực kỳ giá trị)
-    // Giảm hao 18% tương đương việc tăng thêm ~30% thời gian hoạt động
-    const score = (buff * 1.0 + red * 1.5) * (weight || 1.0);
-    return score;
+    let buffScore = 0;
+    if (sk.buffs) {
+      for (const t of targetTypes) {
+        if (sk.buffs[t]) {
+          const w = weights[t] !== undefined ? weights[t] : 1.0;
+          buffScore += sk.buffs[t] * w;
+        }
+      }
+    }
+
+    const redScore = (sk.red || 0) * 1.5;
+    return buffScore + redScore;
   }
 
-  // Thuật toán xếp đội hình cho 1 Ca
-  function assignShiftTeams(availableOps, roomConfigs, weights) {
-    const assignment = {
-      mfg1: [],
-      mfg2: [],
-      growth: [],
-      reception: [],
-      nexus: []
+  // Phân bổ cán viên vào 5 phòng: 1 CÁN VIÊN CHỈ ĐƯỢC Ở ĐÚNG 1 PHÒNG!
+  function assignDistinctRooms(operators, roomConfigs, weights) {
+    const roomKeys = ['mfg1', 'mfg2', 'growth', 'reception', 'nexus'];
+
+    // Sắp xếp thứ tự ưu tiên của phòng theo trọng số tài nguyên cao nhất của phòng đó
+    const roomPriorities = {
+      mfg1: weights.char_exp || 1.0,
+      mfg2: weights.weapon_exp || 1.0,
+      growth: Math.max(...(roomConfigs.growth.types.map(t => weights[t] || 1.0)), 1.0),
+      reception: weights.clue || 1.0,
+      nexus: weights.nexus || 1.0
     };
 
-    const roomDefs = [
-      { key: 'mfg1', cabin: 'MFG Cabin', type: roomConfigs.mfg1.type, cap: 3, weight: weights.char_exp || 1.0 },
-      { key: 'mfg2', cabin: 'MFG Cabin', type: roomConfigs.mfg2.type, cap: 3, weight: weights.weapon_exp || 1.0 },
-      { key: 'growth', cabin: 'Growth Chamber', type: roomConfigs.growth.type, cap: 3, weight: weights.growth || 1.0 },
-      { key: 'reception', cabin: 'Reception Room', type: 'clue', cap: 3, weight: weights.clue || 1.0 },
-      { key: 'nexus', cabin: 'Control Nexus', type: 'regen', cap: 5, weight: weights.nexus || 1.0 }
-    ];
+    roomKeys.sort((a, b) => roomPriorities[b] - roomPriorities[a]);
 
-    // Sắp xếp các phòng theo độ ưu tiên trọng số giảm dần
-    roomDefs.sort((a, b) => b.weight - a.weight);
+    const usedOperators = new Set();
+    const assignment = {
+      mfg1: { shift1: [], shift2: [] },
+      mfg2: { shift1: [], shift2: [] },
+      growth: { shift1: [], shift2: [] },
+      reception: { shift1: [], shift2: [] },
+      nexus: { shift1: [], shift2: [] }
+    };
 
-    const assignedNames = new Set();
+    for (const rKey of roomKeys) {
+      const cfg = roomConfigs[rKey];
+      const cabin = cfg.cabin;
+      const targets = cfg.types;
+      const cap = cfg.cap;
 
-    // Vòng 1: Chọn ứng viên xuất sắc nhất cho từng phòng
-    for (const r of roomDefs) {
+      // Tìm ứng viên chưa được gán vào bất kỳ phòng nào
       const candidates = [];
-      for (const op of availableOps) {
-        if (assignedNames.has(op.name)) continue;
-        const score = evaluateOperatorForRoom(op, r.cabin, r.type, r.weight);
-        if (score > 0) {
-          candidates.push({ op, score });
-        }
+      for (const op of operators) {
+        if (usedOperators.has(op.name)) continue;
+        const score = evaluateOperatorForRoom(op, cabin, targets, weights);
+        candidates.push({ op, score });
       }
+
+      // Sắp xếp ứng viên điểm cao nhất
       candidates.sort((a, b) => b.score - a.score);
 
-      const pickCount = Math.min(r.cap, candidates.length);
-      for (let i = 0; i < pickCount; i++) {
-        assignment[r.key].push(candidates[i].op);
-        assignedNames.add(candidates[i].op.name);
-      }
+      // Tuyển chọn Ca 1 (tối đa cap)
+      const shift1Ops = candidates.slice(0, cap).map(c => c.op);
+      shift1Ops.forEach(op => usedOperators.add(op.name));
+
+      // Tuyển chọn Ca 2 từ các ứng viên còn lại
+      const remainingCandidates = candidates.slice(cap).filter(c => !usedOperators.has(c.op.name));
+      const shift2Ops = remainingCandidates.slice(0, cap).map(c => c.op);
+      shift2Ops.forEach(op => usedOperators.add(op.name));
+
+      assignment[rKey] = {
+        shift1: shift1Ops,
+        shift2: shift2Ops
+      };
     }
 
-    // Vòng 2: Nếu phòng sản xuất chưa đủ 3 người, bù thêm cán viên giảm hao hoặc dự bị
-    for (const r of roomDefs) {
-      if (r.key === 'nexus') continue; // Nexus không bắt buộc đủ
-      while (assignment[r.key].length < r.cap) {
-        let bestFiller = null;
-        let bestFillerScore = -1;
-        for (const op of availableOps) {
-          if (assignedNames.has(op.name)) continue;
-          const s = evaluateOperatorForRoom(op, r.cabin, r.type, r.weight);
-          if (s > bestFillerScore) {
-            bestFillerScore = s;
-            bestFiller = op;
-          }
-        }
-        if (bestFiller) {
-          assignment[r.key].push(bestFiller);
-          assignedNames.add(bestFiller.name);
-        } else {
-          break; // Hết nhân lực
-        }
-      }
-    }
-
-    return {
-      assignment,
-      usedOps: assignedNames
-    };
+    return assignment;
   }
 
   // Tính thông số hiệu suất và tốc độ hao của một team
-  function getTeamMetrics(teamMembers, cabinEn, targetType, baseBurnRate) {
+  function calculateTeamMetrics(teamMembers, cabinEn, targetTypes, baseBurnRate) {
     const n = teamMembers.length;
     const baseEff = 1.0 + 0.4 * n;
 
@@ -227,15 +191,24 @@
     for (const op of teamMembers) {
       const sk = op.skills[cabinEn];
       if (!sk) continue;
-      if (sk.buffs && sk.buffs[targetType] !== undefined) {
-        totalBuffPct += sk.buffs[targetType];
+
+      if (cabinEn === 'Control Nexus') {
+        totalRegenPct += sk.regen || 0;
+      } else {
+        if (sk.buffs) {
+          for (const t of targetTypes) {
+            if (sk.buffs[t]) {
+              totalBuffPct += sk.buffs[t];
+            }
+          }
+        }
+        totalRedPct += sk.red || 0;
       }
-      totalRedPct += sk.red || 0;
-      totalRegenPct += sk.regen || 0;
     }
 
     const totalEffPct = baseEff * (1.0 + totalBuffPct / 100.0) * 100.0;
-    const actualBurnRate = (baseBurnRate || 7.2) * Math.max(0.1, 1.0 - totalRedPct / 100.0);
+    const burnRate = baseBurnRate || 7.2;
+    const actualBurnRate = burnRate * Math.max(0.1, 1.0 - totalRedPct / 100.0);
     const maxDurationHours = totalRedPct < 100 ? (100.0 / actualBurnRate) : 999.0;
 
     return {
@@ -250,196 +223,158 @@
     };
   }
 
-  // Mô phỏng chu kỳ stamina 1, 3, 7 ngày và tính sản lượng thực tế
-  function simulateCycle(shift1Assignment, shift2Assignment, roomConfigs, x, cycleDays, baseBurnRate, baseRestRegen) {
-    const burnRate = baseBurnRate || 7.2;
-    const restRegen = baseRestRegen || 12.0;
-    const days = cycleDays || 1;
-
-    // Tính buff Control Nexus của 2 ca
-    const nexusMetrics1 = getTeamMetrics(shift1Assignment.nexus, 'Control Nexus', 'regen', burnRate);
-    const nexusMetrics2 = getTeamMetrics(shift2Assignment.nexus, 'Control Nexus', 'regen', burnRate);
-
-    const regenSpeedShift1 = restRegen * (1.0 + nexusMetrics1.totalRegenPct / 100.0);
-    const regenSpeedShift2 = restRegen * (1.0 + nexusMetrics2.totalRegenPct / 100.0);
-
-    const roomKeys = ['mfg1', 'mfg2', 'growth', 'reception'];
-    const results = {};
-
-    // Khởi tạo trạng thái stamina của cán viên (100% lúc ban đầu)
-    const opStamina = {};
-    const allOps = [];
-    [...shift1Assignment.mfg1, ...shift1Assignment.mfg2, ...shift1Assignment.growth, ...shift1Assignment.reception,
-     ...shift2Assignment.mfg1, ...shift2Assignment.mfg2, ...shift2Assignment.growth, ...shift2Assignment.reception].forEach(op => {
-      if (!opStamina[op.name]) {
-        opStamina[op.name] = 100.0;
-        allOps.push(op);
+  // Tính tốc độ hồi phục Stamina toàn căn cứ từ Control Nexus
+  // Công thức chuẩn xác: Base 12%/h * (1 + sum(buff) / 100)
+  function calculateNexusRegenSpeed(nexusMembers) {
+    let totalBuffPct = 0;
+    for (const op of nexusMembers) {
+      const sk = op.skills['Control Nexus'];
+      if (sk && sk.regen) {
+        totalBuffPct += sk.regen;
       }
-    });
-
-    for (const rKey of roomKeys) {
-      results[rKey] = {
-        shift1: {
-          members: shift1Assignment[rKey],
-          metrics: getTeamMetrics(shift1Assignment[rKey], roomConfigs[rKey].cabin, roomConfigs[rKey].type, burnRate),
-          dailyWorkHoursAvg: 0,
-          dailyOutputAvg: 0,
-          depletedHour: null
-        },
-        shift2: {
-          members: shift2Assignment[rKey],
-          metrics: getTeamMetrics(shift2Assignment[rKey], roomConfigs[rKey].cabin, roomConfigs[rKey].type, burnRate),
-          dailyWorkHoursAvg: 0,
-          dailyOutputAvg: 0,
-          depletedHour: null
-        },
-        dailyTotalOutputAvg: 0,
-        dailyAvgEfficiency: 0
-      };
     }
+    const realSpeed = 12.0 * (1.0 + totalBuffPct / 100.0);
+    const ingameSpeed = Math.round(realSpeed); // Ingame hiển thị làm tròn số nguyên
+    return {
+      totalBuffPct,
+      realSpeed: parseFloat(realSpeed.toFixed(2)),
+      ingameSpeed
+    };
+  }
+
+  // Mô phỏng chu kỳ độc lập cho 1 phòng cụ thể với giá trị x của phòng đó
+  function simulateRoomCycle(roomKey, teamShift1, teamShift2, cabinEn, targetTypes, x, cycleDays, nexusShift1Regen, nexusShift2Regen) {
+    const days = cycleDays || 1;
+    const m1 = calculateTeamMetrics(teamShift1, cabinEn, targetTypes, 7.2);
+    const m2 = calculateTeamMetrics(teamShift2, cabinEn, targetTypes, 7.2);
 
     const shift1Duration = x;
     const shift2Duration = 24 - x;
 
-    let totalCycleOutputByRoom = { mfg1: 0, mfg2: 0, growth: 0, reception: 0 };
+    const opStamina = {};
+    [...teamShift1, ...teamShift2].forEach(op => { opStamina[op.name] = 100.0; });
+
+    let totalCycleOutput = 0;
+    let depletedHourShift1 = null;
+    let depletedHourShift2 = null;
 
     for (let day = 1; day <= days; day++) {
-      // === CA 1: 0h -> x ===
-      for (const rKey of roomKeys) {
-        const team = shift1Assignment[rKey];
-        const m = results[rKey].shift1.metrics;
-        if (team.length === 0) continue;
-
-        // Lấy stamina nhỏ nhất trong team
+      // === CA 1: 0 -> x ===
+      if (teamShift1.length > 0) {
         let minS = 100.0;
-        team.forEach(op => { minS = Math.min(minS, opStamina[op.name]); });
+        teamShift1.forEach(op => { minS = Math.min(minS, opStamina[op.name]); });
 
-        // Thời gian làm việc có buff hiệu suất
-        const maxTimePossible = minS / m.actualBurnRate;
-        const actualWorkTime = Math.min(shift1Duration, maxTimePossible);
+        const maxWorkTime = minS / m1.actualBurnRate;
+        const actualWorkTime = Math.min(shift1Duration, maxWorkTime);
 
-        if (actualWorkTime < shift1Duration && !results[rKey].shift1.depletedHour) {
-          results[rKey].shift1.depletedHour = parseFloat(actualWorkTime.toFixed(1));
+        if (actualWorkTime < shift1Duration && !depletedHourShift1) {
+          depletedHourShift1 = parseFloat(actualWorkTime.toFixed(1));
         }
 
-        const out = actualWorkTime * (m.totalEffPct / 100.0);
-        totalCycleOutputByRoom[rKey] += out;
+        totalCycleOutput += actualWorkTime * (m1.totalEffPct / 100.0);
 
-        // Tiêu hao stamina của team Ca 1
-        team.forEach(op => {
-          opStamina[op.name] = Math.max(0, opStamina[op.name] - shift1Duration * m.actualBurnRate);
+        // Hao stamina Ca 1
+        teamShift1.forEach(op => {
+          opStamina[op.name] = Math.max(0, opStamina[op.name] - shift1Duration * m1.actualBurnRate);
         });
       }
 
-      // Đội Ca 2 nghỉ trong lúc Ca 1 làm việc (x giờ)
-      for (const rKey of roomKeys) {
-        shift2Assignment[rKey].forEach(op => {
-          opStamina[op.name] = Math.min(100.0, opStamina[op.name] + shift1Duration * regenSpeedShift1);
+      // Ca 2 nghỉ trong lúc Ca 1 làm việc (x giờ)
+      if (teamShift2.length > 0) {
+        teamShift2.forEach(op => {
+          opStamina[op.name] = Math.min(100.0, opStamina[op.name] + shift1Duration * nexusShift1Regen.realSpeed);
         });
       }
 
       // === CA 2: x -> 24 ===
-      for (const rKey of roomKeys) {
-        const team = shift2Assignment[rKey];
-        const m = results[rKey].shift2.metrics;
-        if (team.length === 0) continue;
-
+      if (teamShift2.length > 0) {
         let minS = 100.0;
-        team.forEach(op => { minS = Math.min(minS, opStamina[op.name]); });
+        teamShift2.forEach(op => { minS = Math.min(minS, opStamina[op.name]); });
 
-        const maxTimePossible = minS / m.actualBurnRate;
-        const actualWorkTime = Math.min(shift2Duration, maxTimePossible);
+        const maxWorkTime = minS / m2.actualBurnRate;
+        const actualWorkTime = Math.min(shift2Duration, maxWorkTime);
 
-        if (actualWorkTime < shift2Duration && !results[rKey].shift2.depletedHour) {
-          results[rKey].shift2.depletedHour = parseFloat((x + actualWorkTime).toFixed(1));
+        if (actualWorkTime < shift2Duration && !depletedHourShift2) {
+          depletedHourShift2 = parseFloat((x + actualWorkTime).toFixed(1));
         }
 
-        const out = actualWorkTime * (m.totalEffPct / 100.0);
-        totalCycleOutputByRoom[rKey] += out;
+        totalCycleOutput += actualWorkTime * (m2.totalEffPct / 100.0);
 
-        // Tiêu hao stamina của team Ca 2
-        team.forEach(op => {
-          opStamina[op.name] = Math.max(0, opStamina[op.name] - shift2Duration * m.actualBurnRate);
+        // Hao stamina Ca 2
+        teamShift2.forEach(op => {
+          opStamina[op.name] = Math.max(0, opStamina[op.name] - shift2Duration * m2.actualBurnRate);
         });
       }
 
-      // Đội Ca 1 nghỉ trong lúc Ca 2 làm việc (24 - x giờ)
-      for (const rKey of roomKeys) {
-        shift1Assignment[rKey].forEach(op => {
-          opStamina[op.name] = Math.min(100.0, opStamina[op.name] + shift2Duration * regenSpeedShift2);
+      // Ca 1 nghỉ trong lúc Ca 2 làm việc (24 - x giờ)
+      if (teamShift1.length > 0) {
+        teamShift1.forEach(op => {
+          opStamina[op.name] = Math.min(100.0, opStamina[op.name] + shift2Duration * nexusShift2Regen.realSpeed);
         });
       }
     }
 
-    // Tính trung bình mỗi ngày
-    let overallDailyOutput = 0;
-    for (const rKey of roomKeys) {
-      const avgOut = totalCycleOutputByRoom[rKey] / days;
-      results[rKey].dailyTotalOutputAvg = parseFloat(avgOut.toFixed(1));
-      results[rKey].dailyAvgEfficiency = Math.round((avgOut / 24.0) * 100);
-      overallDailyOutput += avgOut;
-    }
-
-    const overallAvgEfficiency = Math.round((overallDailyOutput / (24.0 * roomKeys.length)) * 100);
+    const dailyOutputAvg = parseFloat((totalCycleOutput / days).toFixed(1));
+    const dailyAvgEfficiency = Math.round((dailyOutputAvg / 24.0) * 100);
 
     return {
-      results,
-      overallDailyOutput: parseFloat(overallDailyOutput.toFixed(1)),
-      overallAvgEfficiency,
-      nexusShift1: nexusMetrics1,
-      nexusShift2: nexusMetrics2,
-      regenSpeedShift1: parseFloat(regenSpeedShift1.toFixed(2)),
-      regenSpeedShift2: parseFloat(regenSpeedShift2.toFixed(2))
+      m1,
+      m2,
+      x,
+      shift1Duration,
+      shift2Duration,
+      dailyOutputAvg,
+      dailyAvgEfficiency,
+      depletedHourShift1,
+      depletedHourShift2
     };
   }
 
-  // Tự động tìm x tối ưu (1 <= x <= 23)
-  function findOptimalX(shift1Assignment, shift2Assignment, roomConfigs, weights, cycleDays, baseBurnRate, baseRestRegen) {
+  // Tự động tìm x tối ưu riêng cho 1 phòng cụ thể
+  function findOptimalXForRoom(roomKey, teamShift1, teamShift2, cabinEn, targetTypes, cycleDays, nexusShift1Regen, nexusShift2Regen) {
     let bestX = 12;
-    let maxWeightedOutput = -1;
+    let maxDailyOutput = -1;
     const comparisons = [];
 
-    const roomWeights = {
-      mfg1: weights.char_exp || 1.0,
-      mfg2: weights.weapon_exp || 1.0,
-      growth: weights.growth || 1.0,
-      reception: weights.clue || 1.0
-    };
-
     for (let testX = 1; testX <= 23; testX++) {
-      const sim = simulateCycle(shift1Assignment, shift2Assignment, roomConfigs, testX, cycleDays, baseBurnRate, baseRestRegen);
-      let weightedScore = 0;
-      for (const rKey in roomWeights) {
-        weightedScore += (sim.results[rKey].dailyTotalOutputAvg || 0) * roomWeights[rKey];
-      }
+      const sim = simulateRoomCycle(
+        roomKey,
+        teamShift1,
+        teamShift2,
+        cabinEn,
+        targetTypes,
+        testX,
+        cycleDays,
+        nexusShift1Regen,
+        nexusShift2Regen
+      );
 
       comparisons.push({
         x: testX,
-        weightedScore: parseFloat(weightedScore.toFixed(2)),
-        overallDailyOutput: sim.overallDailyOutput,
-        overallAvgEfficiency: sim.overallAvgEfficiency
+        dailyOutput: sim.dailyOutputAvg,
+        dailyEff: sim.dailyAvgEfficiency
       });
 
-      if (weightedScore > maxWeightedOutput) {
-        maxWeightedOutput = weightedScore;
+      if (sim.dailyOutputAvg > maxDailyOutput) {
+        maxDailyOutput = sim.dailyOutputAvg;
         bestX = testX;
       }
     }
 
     return {
       bestX,
-      maxWeightedOutput,
+      maxDailyOutput,
       comparisons
     };
   }
 
-  // API chính xuất ra ngoài
   window.A9EOptimizer = {
     parseAllOperators,
-    assignShiftTeams,
-    getTeamMetrics,
-    simulateCycle,
-    findOptimalX
+    assignDistinctRooms,
+    calculateTeamMetrics,
+    calculateNexusRegenSpeed,
+    simulateRoomCycle,
+    findOptimalXForRoom
   };
 
 })(window);
