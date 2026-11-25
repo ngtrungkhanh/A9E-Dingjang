@@ -121,19 +121,19 @@ Dữ liệu raw kho đồ game:
 
 ---
 
-## 5. Hướng Dẫn Sử Dụng Script Cào `skport_crawler.py`
+## 5. Hướng Dẫn Sử Dụng Script Cào `scripts/skport_crawler.py`
 
 Khi tài khoản của bạn có nhân vật mới, lên cấp, hoặc đổi vũ khí, bạn chỉ cần chạy lại script:
 
 ### Chạy trực tiếp qua Command Prompt / PowerShell:
 ```powershell
 cd "D:\ToiUuHauCan"
-python skport_crawler.py --cred "eJRlW89t7BuV9UfS046W0ySbooBcayDf"
+python scripts/skport_crawler.py --cred "eJRlW89t7BuV9UfS046W0ySbooBcayDf"
 ```
 
 Hoặc chạy tương tác (script sẽ tự hỏi bạn dán Session Code nếu không truyền tham số):
 ```powershell
-python skport_crawler.py
+python scripts/skport_crawler.py
 ```
 
 Sau khi chạy xong, script sẽ tự động cập nhật lại toàn bộ 4 file JSON trong thư mục `D:\ToiUuHauCan` mà không phụ thuộc vào bất kỳ dịch vụ online nào.

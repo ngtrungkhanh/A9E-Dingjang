@@ -19,7 +19,8 @@ import urllib.request
 import urllib.error
 import argparse
 
-DEFAULT_OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Lưu mặc định ra thư mục gốc dự án (thư mục cha của scripts/)
+DEFAULT_OUTPUT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 class SkportCrawler:
     BASE_URL = "https://zonai.skport.com"

@@ -152,6 +152,7 @@
     growthTargets: JSON.parse(localStorage.getItem('a9e_growth_targets') || '["plant", "mineral"]'),
     cycleDays: parseInt(localStorage.getItem('a9e_cycle_days') || '1', 10),
     roomX: JSON.parse(localStorage.getItem('a9e_room_x') || '{"nexus":12,"mfg1":12,"mfg2":12,"growth":12,"reception":12}'),
+    syncHour: parseInt(localStorage.getItem('a9e_sync_hour') || '19', 10),
     weights: JSON.parse(localStorage.getItem('a9e_weights_v3') || JSON.stringify({
       char_exp: 1.0,
       weapon_exp: 1.0,
@@ -190,6 +191,7 @@
     localStorage.setItem('a9e_growth_targets', JSON.stringify(state.growthTargets));
     localStorage.setItem('a9e_cycle_days', state.cycleDays.toString());
     localStorage.setItem('a9e_room_x', JSON.stringify(state.roomX));
+    localStorage.setItem('a9e_sync_hour', (state.syncHour !== undefined ? state.syncHour : 19).toString());
     localStorage.setItem('a9e_weights_v3', JSON.stringify(state.weights));
   }
 
@@ -275,6 +277,21 @@
       totalBaseDailyOutput += simResults[r].dailyOutputAvg;
       totalBaseDailySanity += (simResults[r].sanityDaily || 0);
     });
+
+    const wChar = state.weights.char_exp !== undefined ? state.weights.char_exp : 1.0;
+    const wWeapon = state.weights.weapon_exp !== undefined ? state.weights.weapon_exp : 1.0;
+    const wClue = state.weights.clue !== undefined ? state.weights.clue : 1.0;
+    const wPlant = state.weights.plant !== undefined ? state.weights.plant : 1.0;
+    const wMineral = state.weights.mineral !== undefined ? state.weights.mineral : 1.0;
+    const wFungus = state.weights.fungus !== undefined ? state.weights.fungus : 1.0;
+    const wGrowth = Math.max(wPlant, wMineral, wFungus);
+
+    const weightedChar = parseFloat((simResults.mfg1.sanityDaily * wChar).toFixed(1));
+    const weightedWeapon = parseFloat((simResults.mfg2.sanityDaily * wWeapon).toFixed(1));
+    const weightedGrowth = parseFloat((simResults.growth.sanityDaily * wGrowth).toFixed(1));
+    const weightedClue = parseFloat((simResults.reception.sanityDaily * wClue).toFixed(1));
+    const totalWeightedSanity = parseFloat((weightedChar + weightedWeapon + weightedGrowth + weightedClue).toFixed(1));
+    const hasCustomWeights = (wChar !== 1.0 || wWeapon !== 1.0 || wClue !== 1.0 || wPlant !== 1.0 || wMineral !== 1.0 || wFungus !== 1.0);
 
     let accountHtml = '';
     if (state.userData && state.userData.account) {
@@ -372,35 +389,37 @@
             Hệ số nhân trực tiếp vào giá trị Sanity quy đổi của từng loại tài nguyên để điều chỉnh ưu tiên tối ưu hóa (mặc định = 1.0).
           </p>
           
-          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:0.5rem;">
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:0.55rem;">
+            <!-- HÀNG TRÊN: EXP Cán Viên, EXP Vũ Khí, Manh Mối -->
             <div style="background:rgba(15,23,42,0.8); border:1px solid var(--border-color); border-radius:6px; padding:0.4rem 0.55rem; display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:0.78rem; color:var(--text-secondary);">${t('wCharExp')}</span>
+              <span style="font-size:0.78rem; color:var(--text-secondary); font-weight:600;">${t('wCharExp')}</span>
               <input type="number" class="weight-number-input" data-weight="char_exp" min="0" max="10" step="0.1" value="${state.weights.char_exp}" style="width:48px; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:4px; padding:0.2rem 0.3rem; font-family:var(--font-mono); font-size:0.8rem; text-align:center; font-weight:700;" />
             </div>
 
             <div style="background:rgba(15,23,42,0.8); border:1px solid var(--border-color); border-radius:6px; padding:0.4rem 0.55rem; display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:0.78rem; color:var(--text-secondary);">${t('wWeaponExp')}</span>
+              <span style="font-size:0.78rem; color:var(--text-secondary); font-weight:600;">${t('wWeaponExp')}</span>
               <input type="number" class="weight-number-input" data-weight="weapon_exp" min="0" max="10" step="0.1" value="${state.weights.weapon_exp}" style="width:48px; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:4px; padding:0.2rem 0.3rem; font-family:var(--font-mono); font-size:0.8rem; text-align:center; font-weight:700;" />
             </div>
 
             <div style="background:rgba(15,23,42,0.8); border:1px solid var(--border-color); border-radius:6px; padding:0.4rem 0.55rem; display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:0.78rem; color:var(--text-secondary);">${t('wPlant')}</span>
+              <span style="font-size:0.78rem; color:var(--text-secondary); font-weight:600;">${t('wClue')}</span>
+              <input type="number" class="weight-number-input" data-weight="clue" min="0" max="10" step="0.1" value="${state.weights.clue}" style="width:48px; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:4px; padding:0.2rem 0.3rem; font-family:var(--font-mono); font-size:0.8rem; text-align:center; font-weight:700;" />
+            </div>
+
+            <!-- HÀNG DƯỚI: Cây Trồng, Khoáng Sản, Nấm -->
+            <div style="background:rgba(15,23,42,0.8); border:1px solid var(--border-color); border-radius:6px; padding:0.4rem 0.55rem; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:0.78rem; color:var(--text-secondary); font-weight:600;">${t('wPlant')}</span>
               <input type="number" class="weight-number-input" data-weight="plant" min="0" max="10" step="0.1" value="${state.weights.plant}" style="width:48px; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:4px; padding:0.2rem 0.3rem; font-family:var(--font-mono); font-size:0.8rem; text-align:center; font-weight:700;" />
             </div>
 
             <div style="background:rgba(15,23,42,0.8); border:1px solid var(--border-color); border-radius:6px; padding:0.4rem 0.55rem; display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:0.78rem; color:var(--text-secondary);">${t('wMineral')}</span>
+              <span style="font-size:0.78rem; color:var(--text-secondary); font-weight:600;">${t('wMineral')}</span>
               <input type="number" class="weight-number-input" data-weight="mineral" min="0" max="10" step="0.1" value="${state.weights.mineral}" style="width:48px; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:4px; padding:0.2rem 0.3rem; font-family:var(--font-mono); font-size:0.8rem; text-align:center; font-weight:700;" />
             </div>
 
             <div style="background:rgba(15,23,42,0.8); border:1px solid var(--border-color); border-radius:6px; padding:0.4rem 0.55rem; display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:0.78rem; color:var(--text-secondary);">${t('wFungus')}</span>
+              <span style="font-size:0.78rem; color:var(--text-secondary); font-weight:600;">${t('wFungus')}</span>
               <input type="number" class="weight-number-input" data-weight="fungus" min="0" max="10" step="0.1" value="${state.weights.fungus}" style="width:48px; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:4px; padding:0.2rem 0.3rem; font-family:var(--font-mono); font-size:0.8rem; text-align:center; font-weight:700;" />
-            </div>
-
-            <div style="background:rgba(15,23,42,0.8); border:1px solid var(--border-color); border-radius:6px; padding:0.4rem 0.55rem; display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:0.78rem; color:var(--text-secondary);">${t('wClue')}</span>
-              <input type="number" class="weight-number-input" data-weight="clue" min="0" max="10" step="0.1" value="${state.weights.clue}" style="width:48px; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:4px; padding:0.2rem 0.3rem; font-family:var(--font-mono); font-size:0.8rem; text-align:center; font-weight:700;" />
             </div>
           </div>
         </div>
@@ -415,69 +434,68 @@
           <div class="metric-box cyan">
             <div class="metric-title">${t('wCharExp')}</div>
             <div class="metric-num" style="color:#38bdf8;">${simResults.mfg1.sanityDaily} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
-            <div class="metric-desc">Hiệu suất TB: ${simResults.mfg1.dailyAvgEfficiency}%</div>
+            <div class="metric-desc">
+              ${wChar !== 1.0 ? `<span style="color:#fbbf24; font-weight:700;">Hệ số x${wChar}: ${weightedChar} San</span>` : `Hiệu suất TB: ${simResults.mfg1.dailyAvgEfficiency}%`}
+            </div>
           </div>
           <div class="metric-box cyan">
             <div class="metric-title">${t('wWeaponExp')}</div>
             <div class="metric-num" style="color:#38bdf8;">${simResults.mfg2.sanityDaily} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
-            <div class="metric-desc">Hiệu suất TB: ${simResults.mfg2.dailyAvgEfficiency}%</div>
+            <div class="metric-desc">
+              ${wWeapon !== 1.0 ? `<span style="color:#fbbf24; font-weight:700;">Hệ số x${wWeapon}: ${weightedWeapon} San</span>` : `Hiệu suất TB: ${simResults.mfg2.dailyAvgEfficiency}%`}
+            </div>
           </div>
           <div class="metric-box green">
             <div class="metric-title">${t('growthName')}</div>
             <div class="metric-num" style="color:#34d399;">${simResults.growth.sanityDaily} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
-            <div class="metric-desc">Hiệu suất TB: ${simResults.growth.dailyAvgEfficiency}%</div>
+            <div class="metric-desc">
+              ${wGrowth !== 1.0 ? `<span style="color:#fbbf24; font-weight:700;">Hệ số x${wGrowth}: ${weightedGrowth} San</span>` : `Hiệu suất TB: ${simResults.growth.dailyAvgEfficiency}%`}
+            </div>
           </div>
           <div class="metric-box purple">
             <div class="metric-title">${t('wClue')}</div>
             <div class="metric-num" style="color:#c084fc;">${simResults.reception.sanityDaily} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
-            <div class="metric-desc">Hiệu suất TB: ${simResults.reception.dailyAvgEfficiency}%</div>
+            <div class="metric-desc">
+              ${wClue !== 1.0 ? `<span style="color:#fbbf24; font-weight:700;">Hệ số x${wClue}: ${weightedClue} San</span>` : `Hiệu suất TB: ${simResults.reception.dailyAvgEfficiency}%`}
+            </div>
           </div>
           <div class="metric-box">
             <div class="metric-title">Tổng Sanity Căn Cứ</div>
             <div class="metric-num" style="color:#fbbf24;">${parseFloat(totalBaseDailySanity.toFixed(1))} <span style="font-size:0.75rem; font-weight:normal; color:#fde68a;">San/ngày</span></div>
-            <div class="metric-desc">Toàn bộ 4 khoang sản xuất</div>
+            <div class="metric-desc">
+              ${hasCustomWeights ? `<span style="color:#fbbf24; font-weight:700;">Hệ số nhân: ${totalWeightedSanity} San</span>` : `Toàn bộ 4 khoang sản xuất`}
+            </div>
           </div>
         </div>
 
-        <div style="background:rgba(6, 182, 212, 0.08); border:1px solid rgba(6, 182, 212, 0.2); border-radius:8px; padding:0.75rem 1rem; margin-top:1rem;">
-          <div style="font-weight:700; color:var(--accent-cyan); font-size:0.85rem;">⚡ ${t('nexusFormulaTitle')}</div>
-          <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.25rem;">${t('nexusFormulaDesc')}</p>
-          <div style="display:flex; flex-wrap:wrap; gap:1.5rem; margin-top:0.4rem; font-size:0.82rem; font-family:var(--font-mono);">
-            <span>• ${t('nexusShift1Regen', { buff: nexusRegen1.totalBuffPct, real: nexusRegen1.realSpeed, ingame: nexusRegen1.ingameSpeed })}</span>
-            <span>• ${t('nexusShift2Regen', { buff: nexusRegen2.totalBuffPct, real: nexusRegen2.realSpeed, ingame: nexusRegen2.ingameSpeed })}</span>
-          </div>
-
-          <div style="margin-top:0.75rem; padding-top:0.6rem; border-top:1px dashed rgba(6,182,212,0.2); display:flex; align-items:center; flex-wrap:wrap; gap:0.75rem;">
-            <span style="font-size:0.8rem; color:var(--text-primary); font-weight:600;">Tra cứu nhanh thời gian hồi phục:</span>
-            <div style="display:flex; align-items:center; gap:0.4rem;">
-              <span style="font-size:0.78rem; color:var(--text-secondary);">Stamina hiện tại:</span>
-              <input type="number" id="quickStaminaInput" min="0" max="99" value="37" style="width:55px; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:4px; padding:0.2rem 0.4rem; font-family:var(--font-mono); font-size:0.8rem; text-align:center;" />
-              <span style="font-size:0.78rem; color:var(--text-secondary);">%</span>
-            </div>
-            <div id="quickStaminaResult" style="font-size:0.8rem; font-family:var(--font-mono); color:#fbbf24;"></div>
+        <div style="background:rgba(6, 182, 212, 0.08); border:1px solid rgba(6, 182, 212, 0.2); border-radius:8px; padding:0.6rem 0.85rem; margin-top:0.75rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+          <span style="font-weight:700; color:var(--accent-cyan); font-size:0.82rem;">⚡ Tốc độ hồi phục căn cứ (Nexus):</span>
+          <div style="display:flex; flex-wrap:wrap; gap:1.2rem; font-size:0.8rem; font-family:var(--font-mono);">
+            <span style="color:var(--accent-orange);">• Ca 1 (Ngày): +${nexusRegen1.totalBuffPct}% (+${nexusRegen1.realSpeed}%/h)</span>
+            <span style="color:var(--accent-cyan);">• Ca 2 (Đêm): +${nexusRegen2.totalBuffPct}% (+${nexusRegen2.realSpeed}%/h)</span>
           </div>
         </div>
       </div>
 
-      <!-- THANH ĐIỀU KHIỂN ĐỒNG BỘ ĐỔI CA TOÀN CĂN CỨ (TỐI ƯU CHO CONTROL NEXUS) -->
+      <!-- THANH ĐIỀU KHIỂN ĐỒNG BỘ ĐỔI CA TOÀN CĂN CỨ -->
       ${renderGlobalSyncShiftCard(optimalSync, nexusRegen2)}
 
       <!-- DANH SÁCH 5 PHÒNG (NEXUS ĐẦU TIÊN) -->
       <div class="rooms-container">
         <!-- 1. CONTROL NEXUS (VỊ TRÍ ĐẦU TIÊN) -->
-        ${renderNexusCard('nexus', t('nexusName'), assignment.nexus, state.roomX.nexus || 12, nexusRegen1, nexusRegen2, autoXSuggestions.nexus)}
+        ${renderNexusCard('nexus', t('nexusName'), assignment.nexus, state.roomX.nexus || 12, nexusRegen1, nexusRegen2, autoXSuggestions.nexus, state.syncHour)}
         
         <!-- 2. KHOANG SX 1 -->
-        ${renderRoomCard('mfg1', t('mfg1Name'), assignment.mfg1, simResults.mfg1, autoXSuggestions.mfg1, 'MFG Cabin', ['char_exp'], nexusRegen1, nexusRegen2)}
+        ${renderRoomCard('mfg1', t('mfg1Name'), assignment.mfg1, simResults.mfg1, autoXSuggestions.mfg1, 'MFG Cabin', ['char_exp'], nexusRegen1, nexusRegen2, state.syncHour)}
         
         <!-- 3. KHOANG SX 2 -->
-        ${renderRoomCard('mfg2', t('mfg2Name'), assignment.mfg2, simResults.mfg2, autoXSuggestions.mfg2, 'MFG Cabin', ['weapon_exp'], nexusRegen1, nexusRegen2)}
+        ${renderRoomCard('mfg2', t('mfg2Name'), assignment.mfg2, simResults.mfg2, autoXSuggestions.mfg2, 'MFG Cabin', ['weapon_exp'], nexusRegen1, nexusRegen2, state.syncHour)}
         
         <!-- 4. BUỒNG PHÁT TRIỂN -->
-        ${renderRoomCard('growth', t('growthName'), assignment.growth, simResults.growth, autoXSuggestions.growth, 'Growth Chamber', roomConfigs.growth.types, nexusRegen1, nexusRegen2)}
+        ${renderRoomCard('growth', t('growthName'), assignment.growth, simResults.growth, autoXSuggestions.growth, 'Growth Chamber', roomConfigs.growth.types, nexusRegen1, nexusRegen2, state.syncHour)}
         
         <!-- 5. PHÒNG TIẾP KHÁCH -->
-        ${renderRoomCard('reception', t('receptionName'), assignment.reception, simResults.reception, autoXSuggestions.reception, 'Reception Room', ['clue'], nexusRegen1, nexusRegen2)}
+        ${renderRoomCard('reception', t('receptionName'), assignment.reception, simResults.reception, autoXSuggestions.reception, 'Reception Room', ['clue'], nexusRegen1, nexusRegen2, state.syncHour)}
       </div>
 
       <!-- ĐỀ XUẤT NÂNG CẤP CÁN VIÊN (ĐƯA XUỐNG DƯỚI CÙNG & GẬP MỞ ACCORDION) -->
@@ -494,41 +512,55 @@
     bindEvents(autoXSuggestions, nexusRegen1, nexusRegen2, optimalSync);
   }
 
-  // Render Thanh Điều Khiển Đổi Ca (Đồng Bộ Giao Ca Lúc 19:00 vs Chia Đều 12h)
+  // Render Thanh Điều Khiển Đổi Ca (Đồng Bộ Giao Ca Lúc xx:00)
   function renderGlobalSyncShiftCard(optimalSync, nexusRegen2) {
-    const isOptimal19h = (state.roomX.mfg1 === 19 && state.roomX.mfg2 === 19 && state.roomX.growth === 14 && state.roomX.reception === 20 && state.roomX.nexus === 12);
-    const isDefault12h = (state.roomX.mfg1 === 12 && state.roomX.mfg2 === 12 && state.roomX.growth === 12 && state.roomX.reception === 12 && state.roomX.nexus === 12);
+    const syncH = (state.syncHour !== undefined && state.syncHour !== null) ? state.syncHour : 19;
+    const syncHStr = (syncH < 10 ? '0' : '') + syncH;
+
+    const sM1 = ((syncH - (state.roomX.mfg1 || 19) + 24) % 24).toString().padStart(2, '0') + ':00';
+    const sM2 = ((syncH - (state.roomX.mfg2 || 19) + 24) % 24).toString().padStart(2, '0') + ':00';
+    const sGr = ((syncH - (state.roomX.growth || 14) + 24) % 24).toString().padStart(2, '0') + ':00';
+    const sRec = ((syncH - (state.roomX.reception || 20) + 24) % 24).toString().padStart(2, '0') + ':00';
+    const eNex = ((syncH + (24 - (state.roomX.nexus || 12))) % 24).toString().padStart(2, '0') + ':00';
 
     return `
-      <div class="glass-panel" style="padding:1rem 1.25rem; margin-bottom:1.5rem; border:1px solid rgba(6,182,212,0.35); background:rgba(6,182,212,0.05); border-left:4px solid var(--accent-cyan);">
+      <div class="glass-panel" style="padding:0.9rem 1.25rem; margin-bottom:1.5rem; border:1px solid rgba(6,182,212,0.35); background:rgba(6,182,212,0.05); border-left:4px solid var(--accent-cyan);">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
           <div>
             <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
               <span style="font-size:1.15rem;">⚡</span>
-              <h3 style="font-size:1.05rem; color:#fff; font-weight:700;">
-                Chiến Lược Đồng Bộ Thay Ca Căn Cứ (In-game Tự Động Đổi Ca)
+              <h3 style="font-size:1.02rem; color:#fff; font-weight:700;">
+                Đồng Bộ Mốc Giao Ca Căn Cứ
               </h3>
-              ${isOptimal19h ? `<span class="badge-tag" style="background:rgba(52,211,153,0.15); color:#34d399; font-size:0.75rem;">✓ Đang đồng bộ giao ca lúc 19:00 (130.5 San)</span>` : (isDefault12h ? `<span class="badge-tag" style="background:rgba(6,182,212,0.15); color:#38bdf8; font-size:0.75rem;">Đang chia đều (12h / 12h)</span>` : `<span class="badge-tag" style="background:rgba(245,158,11,0.15); color:#fbbf24; font-size:0.75rem;">Tùy chỉnh thủ công</span>`)}
+              <span class="badge-tag" style="background:rgba(52,211,153,0.15); color:#34d399; font-size:0.75rem;">
+                ✓ Giao ca lúc ${syncHStr}:00 (130.5 San/ngày)
+              </span>
             </div>
-            <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">
-              <strong>Đồng Bộ Thay Ca Cùng Lúc:</strong> Tất cả các phòng cùng kết thúc Ca 1 và giao ca đúng <strong>19:00</strong> mà không làm giảm số giờ tối ưu của bất kỳ phòng nào. Nhờ đó, căn cứ đạt sản lượng đỉnh <strong>130.5 San/ngày</strong> (không bị sụt giảm) và Nexus Ca 2 (+${nexusRegen2.totalBuffPct}%) đón trọn toàn bộ cán viên về nghỉ ngơi!
+            <p style="font-size:0.78rem; color:var(--text-secondary); margin-top:3px;">
+              Tất cả các phòng hoàn thành Ca 1 và giao ca đúng <strong>${syncHStr}:00</strong>. Giữ trọn số giờ tối ưu của từng phòng, bảo toàn 100% sản lượng không bị sụt giảm.
             </p>
           </div>
 
-          <!-- CÁC NÚT ÁP DỤNG NHANH -->
+          <!-- Ô NHẬP GIỜ ĐỒNG BỘ + CÁC NÚT ÁP DỤNG -->
           <div style="display:flex; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+            <div style="display:flex; align-items:center; gap:0.35rem; background:rgba(15,23,42,0.8); padding:0.35rem 0.65rem; border-radius:6px; border:1px solid var(--border-color);">
+              <span style="font-size:0.8rem; color:var(--text-secondary); font-weight:600;">Mốc giao ca:</span>
+              <input type="number" id="inputSyncHour" min="0" max="23" value="${syncH}" style="width:48px; text-align:center; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:4px; padding:0.2rem 0.3rem; font-family:var(--font-mono); font-weight:700; font-size:0.85rem;" />
+              <span style="font-size:0.8rem; color:var(--text-secondary); font-weight:600;">:00</span>
+            </div>
+
             <button id="btnApplyOptimalSync" class="btn-primary" style="padding:0.4rem 0.85rem; font-size:0.82rem; background:linear-gradient(135deg, #059669, #10b981); border:none; color:#fff; font-weight:700;">
-              ⚡ Đồng Bộ Giao Ca Lúc 19:00 (130.5 San)
+              ⚡ Đồng Bộ Lúc ${syncHStr}:00
             </button>
 
             <button id="btnResetSyncDefault" class="btn-group-btn" style="padding:0.4rem 0.65rem; font-size:0.8rem;">
-              ↺ Chia Đều (12h / 12h)
+              ↺ Chia Đều (12h/12h)
             </button>
           </div>
         </div>
 
-        <div style="font-size:0.78rem; font-family:var(--font-mono); color:var(--text-muted); margin-top:0.6rem; border-top:1px dashed rgba(255,255,255,0.08); padding-top:0.5rem;">
-          • Lịch trình đồng bộ giao ca 19:00: SX 1 (00:00 ➔ 19:00) | SX 2 (00:00 ➔ 19:00) | Buồng Trồng (05:00 ➔ 19:00) | Tiếp Khách (23:00 ➔ 19:00) | Nexus (19:00 ➔ 07:00)
+        <div style="font-size:0.76rem; font-family:var(--font-mono); color:var(--text-muted); margin-top:0.5rem; border-top:1px dashed rgba(255,255,255,0.08); padding-top:0.4rem;">
+          • Lịch trình giao ca ${syncHStr}:00: SX 1 (${sM1} ➔ ${syncHStr}:00) | SX 2 (${sM2} ➔ ${syncHStr}:00) | Buồng Trồng (${sGr} ➔ ${syncHStr}:00) | Tiếp Khách (${sRec} ➔ ${syncHStr}:00) | Nexus Ca 2 (${syncHStr}:00 ➔ ${eNex})
         </div>
       </div>
     `;
@@ -591,12 +623,12 @@
   }
 
   // Render Card cho Phòng Sản Xuất (Ô nhập số giờ + Nút Mặc định 12h + Nút Đề xuất)
-  function renderRoomCard(roomKey, roomTitle, roomAssignment, simRes, autoX, cabinEn, targetTypes, nexusRegen1, nexusRegen2) {
+  function renderRoomCard(roomKey, roomTitle, roomAssignment, simRes, autoX, cabinEn, targetTypes, nexusRegen1, nexusRegen2, syncHour = 19) {
     const x = simRes.x;
     const remain = 24 - x;
 
-    // Neo mốc giao ca tại 19:00: Tất cả các phòng cùng đổi Ca 1 sang Ca 2 lúc 19:00
-    const syncEndHour = 19;
+    // Neo mốc giao ca động từ syncHour
+    const syncEndHour = (typeof syncHour === 'number') ? syncHour : 19;
     const startHour = (syncEndHour - x + 24) % 24;
     const startStr = (startHour < 10 ? '0' : '') + startHour + ':00';
     const endStr = (syncEndHour < 10 ? '0' : '') + syncEndHour + ':00';
@@ -658,7 +690,7 @@
         <!-- THÔNG TIN LỊCH TRÌNH VÀ BỀN VỮNG CHU KỲ (TƯƠNG TỰ CONTROL NEXUS) -->
         <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:0.55rem 0.85rem; margin-bottom:0.85rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
           <div style="font-size:0.8rem; font-family:var(--font-mono); color:#38bdf8;">
-            ⏱ <strong>Lịch trình (Giao ca 19:00): Ca 1 (${startStr} ➔ ${endStr} - ${x}h) | Ca 2 (${endStr} ➔ ${startStr} - ${remain}h)</strong>
+            ⏱ <strong>Lịch trình (Giao ca ${endStr}): Ca 1 (${startStr} ➔ ${endStr} - ${x}h) | Ca 2 (${endStr} ➔ ${startStr} - ${remain}h)</strong>
           </div>
           ${roomBadgeHtml}
         </div>
@@ -723,11 +755,15 @@
   }
 
   // Render Card cho Control Nexus (3 Slots) - Ghi rõ giờ thay ca & chiến lược phối hợp giờ nghỉ
-  function renderNexusCard(roomKey, roomTitle, roomAssignment, x, nexusRegen1, nexusRegen2, autoX) {
+  function renderNexusCard(roomKey, roomTitle, roomAssignment, x, nexusRegen1, nexusRegen2, autoX, syncHour = 19) {
     const remain = 24 - x;
-    const isShift2Stronger = nexusRegen2.totalBuffPct >= nexusRegen1.totalBuffPct;
-    const strongShiftName = isShift2Stronger ? 'Ca 2' : 'Ca 1';
-    const strongBuff = Math.max(nexusRegen1.totalBuffPct, nexusRegen2.totalBuffPct);
+    const syncEndHour = (typeof syncHour === 'number') ? syncHour : 19;
+    const nexusNightStart = syncEndHour;
+    const nexusNightEnd = (syncEndHour + remain) % 24;
+    const nightStartStr = (nexusNightStart < 10 ? '0' : '') + nexusNightStart + ':00';
+    const nightEndStr = (nexusNightEnd < 10 ? '0' : '') + nexusNightEnd + ':00';
+    const dayStartStr = nightEndStr;
+    const dayEndStr = nightStartStr;
 
     const reg1Speed = nexusRegen1 ? nexusRegen1.realSpeed : 12.0;
     const reg2Speed = nexusRegen2 ? nexusRegen2.realSpeed : 12.0;
@@ -783,22 +819,17 @@
         </div>
 
         <!-- THÔNG TIN THAY CA & CHIẾN LƯỢC PHỐI HỢP -->
-        <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:0.6rem 0.85rem; margin-bottom:0.85rem; font-size:0.8rem; line-height:1.5;">
-          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
-            <div style="font-family:var(--font-mono); color:#38bdf8;">
-              ⏱ <strong>Lịch trình Nexus: Ca 1 (${x}h: 07:00 ➔ 19:00) | Ca 2 (${remain}h: 19:00 ➔ 07:00)</strong>
-            </div>
-            ${nexusBadgeHtml}
+        <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:0.55rem 0.85rem; margin-bottom:0.85rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+          <div style="font-family:var(--font-mono); color:#38bdf8; font-size:0.8rem;">
+            ⏱ <strong>Lịch trình Nexus: Ca 1 (${dayStartStr} ➔ ${dayEndStr} - ${x}h) | Ca 2 (${nightStartStr} ➔ ${nightEndStr} - ${remain}h)</strong>
           </div>
-          <div style="color:var(--text-secondary); margin-top:4px;">
-            💡 <em>Cơ chế phối hợp chuẩn:</em> Toàn bộ cán viên Ca 1 sản xuất đổi ca về nghỉ lúc <strong>19:00</strong>. Do đó, <strong>Ca 2 (${strongShiftName} buff +${strongBuff}%)</strong> túc trực suốt <strong>19:00 ➔ 07:00 (${remain} tiếng)</strong> để bao trọn giấc ngủ và sạc siêu tốc cho toàn bộ cán viên sản xuất. Ban ngày (<strong>07:00 ➔ 19:00</strong>), <strong>Ca 1 (buff +${nexusRegen1.totalBuffPct}%)</strong> túc trực duy trì căn cứ!
-          </div>
+          ${nexusBadgeHtml}
         </div>
 
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:1rem;">
           <div style="background:rgba(245, 158, 11, 0.05); border:1px solid rgba(245, 158, 11, 0.2); border-radius:8px; padding:0.85rem;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-              <span style="font-size:0.82rem; font-weight:700; color:var(--accent-orange);">☀️ Ca 1 (07:00 ➔ 19:00 - ${x}h) - Ca Ban Ngày</span>
+              <span style="font-size:0.82rem; font-weight:700; color:var(--accent-orange);">☀️ Ca 1 (${dayStartStr} ➔ ${dayEndStr} - ${x}h) - Ca Ban Ngày</span>
               <span class="room-eff-badge">+${nexusRegen1.totalBuffPct}% Regen</span>
             </div>
             <div class="operator-chips">${renderOperatorChipsWithSkills(roomAssignment.shift1, 'Control Nexus', ['nexus'])}</div>
@@ -827,7 +858,7 @@
 
           <div style="background:rgba(6, 182, 212, 0.05); border:1px solid rgba(6, 182, 212, 0.2); border-radius:8px; padding:0.85rem;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-              <span style="font-size:0.82rem; font-weight:700; color:var(--accent-cyan);">🌙 Ca 2 (19:00 ➔ 07:00 - ${remain}h) - Ca Đêm / Tối Ưu</span>
+              <span style="font-size:0.82rem; font-weight:700; color:var(--accent-cyan);">🌙 Ca 2 (${nightStartStr} ➔ ${nightEndStr} - ${remain}h) - Ca Đêm / Tối Ưu</span>
               <span class="room-eff-badge" style="background:rgba(6, 182, 212, 0.15); color:#38bdf8; border-color:rgba(6, 182, 212, 0.3);">+${nexusRegen2.totalBuffPct}% Regen</span>
             </div>
             <div class="operator-chips">${renderOperatorChipsWithSkills(roomAssignment.shift2, 'Control Nexus', ['nexus'])}</div>
@@ -1001,7 +1032,7 @@
 
             <div id="tabContentCode" style="display:${state.activeModalTab === 'code' ? 'block' : 'none'};">
               <p style="font-size:0.82rem; color:var(--text-secondary);">${t('modalBookmarkHelp')}</p>
-              <div class="code-box" id="snippetCode">python D:\\ToiUuHauCan\\skport_crawler.py --cred &lt;SESSION_CODE&gt;</div>
+              <div class="code-box" id="snippetCode">python D:\\ToiUuHauCan\\scripts\\skport_crawler.py --cred &lt;SESSION_CODE&gt;</div>
               <button class="btn-secondary" id="btnCopySnippet" style="width:100%; justify-content:center; margin-top:0.5rem;">
                 📋 ${t('modalCopyBtn')}
               </button>
@@ -1030,25 +1061,16 @@
   }
 
   function bindEvents(autoXSuggestions, nexusRegen1, nexusRegen2, optimalSync) {
-    const stamInput = document.getElementById('quickStaminaInput');
-    const stamRes = document.getElementById('quickStaminaResult');
-    function updateQuickStam() {
-      if (!stamInput || !stamRes) return;
-      const s = Math.min(99, Math.max(0, parseInt(stamInput.value, 10) || 0));
-      const need = 100 - s;
-      const t0Mins = Math.round((need / 12.0) * 60);
-      const t1Mins = Math.round((need / (nexusRegen1 ? nexusRegen1.realSpeed : 12.0)) * 60);
-      const t2Mins = Math.round((need / (nexusRegen2 ? nexusRegen2.realSpeed : 12.0)) * 60);
-
-      const f0 = `${Math.floor(t0Mins / 60)}h${t0Mins % 60 < 10 ? '0' : ''}${t0Mins % 60}p`;
-      const f1 = `${Math.floor(t1Mins / 60)}h${t1Mins % 60 < 10 ? '0' : ''}${t1Mins % 60}p`;
-      const f2 = `${Math.floor(t2Mins / 60)}h${t2Mins % 60 < 10 ? '0' : ''}${t2Mins % 60}p`;
-
-      stamRes.innerHTML = `➔ Không buff: <strong>${f0}</strong> | Nexus Ca 1: <strong>${f1}</strong> | Nexus Ca 2: <strong>${f2}</strong>`;
-    }
-    if (stamInput) {
-      stamInput.oninput = updateQuickStam;
-      updateQuickStam();
+    const inputSyncHour = document.getElementById('inputSyncHour');
+    if (inputSyncHour) {
+      inputSyncHour.onchange = (e) => {
+        let val = parseInt(e.target.value, 10);
+        if (isNaN(val)) val = 19;
+        val = Math.max(0, Math.min(23, val));
+        state.syncHour = val;
+        saveSettings();
+        updateOptimizer();
+      };
     }
 
     const btnVi = document.getElementById('btnLangVi');
@@ -1130,6 +1152,11 @@
     const btnApplyOptimalSync = document.getElementById('btnApplyOptimalSync');
     if (btnApplyOptimalSync) {
       btnApplyOptimalSync.onclick = () => {
+        const inp = document.getElementById('inputSyncHour');
+        if (inp) {
+          let val = parseInt(inp.value, 10);
+          if (!isNaN(val)) state.syncHour = Math.max(0, Math.min(23, val));
+        }
         state.roomX.mfg1 = 19;
         state.roomX.mfg2 = 19;
         state.roomX.growth = 14;

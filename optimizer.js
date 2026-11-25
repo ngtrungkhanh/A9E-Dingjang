@@ -490,7 +490,7 @@
       );
       const w = (r === 'mfg1') ? (weights.char_exp !== undefined ? weights.char_exp : 1.0)
               : (r === 'mfg2') ? (weights.weapon_exp !== undefined ? weights.weapon_exp : 1.0)
-              : (r === 'growth') ? (weights.plant !== undefined ? weights.plant : 1.0)
+              : (r === 'growth') ? Math.max(weights.plant || 1.0, weights.mineral || 1.0, weights.fungus || 1.0)
               : (weights.clue !== undefined ? weights.clue : 1.0);
       const sanValue = opt.maxDailyOutput * (SANITY_PER_UNIT[r] || (11.5508 / 24.0));
       totalScore += sanValue * w;
