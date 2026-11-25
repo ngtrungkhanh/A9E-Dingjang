@@ -50,7 +50,7 @@
       staminaSafe: "✓ Trụ hết ca an toàn",
       staminaDepleted: "⚠ Cạn lúc {h}h (nghỉ {rest}h)",
       burnRateLabel: "Hao: {burn}%/h",
-      dailyOutLabel: "Sản lượng TB/ngày: <strong>{out}</strong>",
+      dailyOutLabel: "Sản lượng TB/ngày: <strong>{out}</strong> đv (~{san} San/ngày)",
       dailyEffLabel: "Hiệu suất TB/ngày: <strong>{eff}%</strong>",
       btnResetDefault: "↺ Mặc định (12h)",
       btnApplyOptimal: "⚡ Đề xuất ({h}h)",
@@ -117,7 +117,7 @@
       staminaSafe: "✓ Sustainable Shift",
       staminaDepleted: "⚠ Depleted at {h}h ({rest}h idle)",
       burnRateLabel: "Burn: {burn}%/h",
-      dailyOutLabel: "Daily Avg Out: <strong>{out}</strong>",
+      dailyOutLabel: "Daily Avg Out: <strong>{out}</strong> units (~{san} San/day)",
       dailyEffLabel: "Daily Avg Eff: <strong>{eff}%</strong>",
       btnResetDefault: "↺ Default (12h)",
       btnApplyOptimal: "⚡ Optimal ({h}h)",
@@ -265,8 +265,12 @@
     if (!appEl) return;
 
     let totalBaseDailyOutput = 0;
+    let totalBaseDailySanity = 0;
     const prodRooms = ['mfg1', 'mfg2', 'growth', 'reception'];
-    prodRooms.forEach(r => { totalBaseDailyOutput += simResults[r].dailyOutputAvg; });
+    prodRooms.forEach(r => {
+      totalBaseDailyOutput += simResults[r].dailyOutputAvg;
+      totalBaseDailySanity += (simResults[r].sanityDaily || 0);
+    });
 
     let accountHtml = '';
     if (state.userData && state.userData.account) {
@@ -352,38 +356,48 @@
           </div>
         </div>
 
-        <!-- Card 2: 6 Hệ số ưu tiên tài nguyên -->
+        <!-- Card 2: 6 Hệ số ưu tiên tài nguyên (Nhập số) -->
         <div class="control-card glass-panel">
-          <div class="control-card-header">⚖ ${t('resourceWeights')}</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+            <div class="control-card-header" style="margin-bottom:0;">⚖ ${t('resourceWeights')}</div>
+            <button class="btn-group-btn" id="btnResetWeights" style="padding:0.2rem 0.5rem; font-size:0.72rem; color:var(--text-secondary);">
+              ↺ Mặc định (1.0)
+            </button>
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.75rem;">
+            Hệ số nhân trực tiếp vào giá trị Sanity quy đổi của từng loại tài nguyên để điều chỉnh ưu tiên tối ưu hóa (mặc định = 1.0).
+          </p>
           
-          <div class="slider-group">
-            <div class="slider-label"><span>${t('wCharExp')}</span><span class="slider-value">${state.weights.char_exp.toFixed(1)}</span></div>
-            <input type="range" class="weight-slider" data-weight="char_exp" min="0" max="3" step="0.1" value="${state.weights.char_exp}" />
-          </div>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:0.5rem;">
+            <div style="background:rgba(15,23,42,0.8); border:1px solid var(--border-color); border-radius:6px; padding:0.4rem 0.55rem; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:0.78rem; color:var(--text-secondary);">${t('wCharExp')}</span>
+              <input type="number" class="weight-number-input" data-weight="char_exp" min="0" max="10" step="0.1" value="${state.weights.char_exp}" style="width:48px; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:4px; padding:0.2rem 0.3rem; font-family:var(--font-mono); font-size:0.8rem; text-align:center; font-weight:700;" />
+            </div>
 
-          <div class="slider-group">
-            <div class="slider-label"><span>${t('wWeaponExp')}</span><span class="slider-value">${state.weights.weapon_exp.toFixed(1)}</span></div>
-            <input type="range" class="weight-slider" data-weight="weapon_exp" min="0" max="3" step="0.1" value="${state.weights.weapon_exp}" />
-          </div>
+            <div style="background:rgba(15,23,42,0.8); border:1px solid var(--border-color); border-radius:6px; padding:0.4rem 0.55rem; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:0.78rem; color:var(--text-secondary);">${t('wWeaponExp')}</span>
+              <input type="number" class="weight-number-input" data-weight="weapon_exp" min="0" max="10" step="0.1" value="${state.weights.weapon_exp}" style="width:48px; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:4px; padding:0.2rem 0.3rem; font-family:var(--font-mono); font-size:0.8rem; text-align:center; font-weight:700;" />
+            </div>
 
-          <div class="slider-group">
-            <div class="slider-label"><span>${t('wPlant')}</span><span class="slider-value">${state.weights.plant.toFixed(1)}</span></div>
-            <input type="range" class="weight-slider" data-weight="plant" min="0" max="3" step="0.1" value="${state.weights.plant}" />
-          </div>
+            <div style="background:rgba(15,23,42,0.8); border:1px solid var(--border-color); border-radius:6px; padding:0.4rem 0.55rem; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:0.78rem; color:var(--text-secondary);">${t('wPlant')}</span>
+              <input type="number" class="weight-number-input" data-weight="plant" min="0" max="10" step="0.1" value="${state.weights.plant}" style="width:48px; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:4px; padding:0.2rem 0.3rem; font-family:var(--font-mono); font-size:0.8rem; text-align:center; font-weight:700;" />
+            </div>
 
-          <div class="slider-group">
-            <div class="slider-label"><span>${t('wMineral')}</span><span class="slider-value">${state.weights.mineral.toFixed(1)}</span></div>
-            <input type="range" class="weight-slider" data-weight="mineral" min="0" max="3" step="0.1" value="${state.weights.mineral}" />
-          </div>
+            <div style="background:rgba(15,23,42,0.8); border:1px solid var(--border-color); border-radius:6px; padding:0.4rem 0.55rem; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:0.78rem; color:var(--text-secondary);">${t('wMineral')}</span>
+              <input type="number" class="weight-number-input" data-weight="mineral" min="0" max="10" step="0.1" value="${state.weights.mineral}" style="width:48px; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:4px; padding:0.2rem 0.3rem; font-family:var(--font-mono); font-size:0.8rem; text-align:center; font-weight:700;" />
+            </div>
 
-          <div class="slider-group">
-            <div class="slider-label"><span>${t('wFungus')}</span><span class="slider-value">${state.weights.fungus.toFixed(1)}</span></div>
-            <input type="range" class="weight-slider" data-weight="fungus" min="0" max="3" step="0.1" value="${state.weights.fungus}" />
-          </div>
+            <div style="background:rgba(15,23,42,0.8); border:1px solid var(--border-color); border-radius:6px; padding:0.4rem 0.55rem; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:0.78rem; color:var(--text-secondary);">${t('wFungus')}</span>
+              <input type="number" class="weight-number-input" data-weight="fungus" min="0" max="10" step="0.1" value="${state.weights.fungus}" style="width:48px; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:4px; padding:0.2rem 0.3rem; font-family:var(--font-mono); font-size:0.8rem; text-align:center; font-weight:700;" />
+            </div>
 
-          <div class="slider-group">
-            <div class="slider-label"><span>${t('wClue')}</span><span class="slider-value">${state.weights.clue.toFixed(1)}</span></div>
-            <input type="range" class="weight-slider" data-weight="clue" min="0" max="3" step="0.1" value="${state.weights.clue}" />
+            <div style="background:rgba(15,23,42,0.8); border:1px solid var(--border-color); border-radius:6px; padding:0.4rem 0.55rem; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:0.78rem; color:var(--text-secondary);">${t('wClue')}</span>
+              <input type="number" class="weight-number-input" data-weight="clue" min="0" max="10" step="0.1" value="${state.weights.clue}" style="width:48px; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:4px; padding:0.2rem 0.3rem; font-family:var(--font-mono); font-size:0.8rem; text-align:center; font-weight:700;" />
+            </div>
           </div>
         </div>
       </div>
@@ -396,28 +410,28 @@
         <div class="metrics-grid">
           <div class="metric-box cyan">
             <div class="metric-title">${t('wCharExp')}</div>
-            <div class="metric-num">${simResults.mfg1.dailyOutputAvg}</div>
-            <div class="metric-desc">Sản lượng TB/ngày</div>
+            <div class="metric-num">${simResults.mfg1.dailyOutputAvg} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">đv</span></div>
+            <div class="metric-desc">≈ ${simResults.mfg1.sanityDaily} San/ngày</div>
           </div>
           <div class="metric-box cyan">
             <div class="metric-title">${t('wWeaponExp')}</div>
-            <div class="metric-num">${simResults.mfg2.dailyOutputAvg}</div>
-            <div class="metric-desc">Sản lượng TB/ngày</div>
+            <div class="metric-num">${simResults.mfg2.dailyOutputAvg} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">đv</span></div>
+            <div class="metric-desc">≈ ${simResults.mfg2.sanityDaily} San/ngày</div>
           </div>
           <div class="metric-box green">
             <div class="metric-title">${t('growthName')}</div>
-            <div class="metric-num">${simResults.growth.dailyOutputAvg}</div>
-            <div class="metric-desc">Sản lượng TB/ngày</div>
+            <div class="metric-num">${simResults.growth.dailyOutputAvg} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">đv</span></div>
+            <div class="metric-desc">≈ ${simResults.growth.sanityDaily} San/ngày</div>
           </div>
           <div class="metric-box purple">
             <div class="metric-title">${t('wClue')}</div>
-            <div class="metric-num">${simResults.reception.dailyOutputAvg}</div>
-            <div class="metric-desc">Tốc độ TB/ngày</div>
+            <div class="metric-num">${simResults.reception.dailyOutputAvg} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">đv</span></div>
+            <div class="metric-desc">≈ ${simResults.reception.sanityDaily} San/ngày</div>
           </div>
           <div class="metric-box">
-            <div class="metric-title">${t('metricDailyOut')}</div>
-            <div class="metric-num">${parseFloat(totalBaseDailyOutput.toFixed(1))}</div>
-            <div class="metric-desc">Quy đổi 4 phòng</div>
+            <div class="metric-title">Tổng Sanity Quy Đổi</div>
+            <div class="metric-num" style="color:#fbbf24;">${parseFloat(totalBaseDailySanity.toFixed(1))} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
+            <div class="metric-desc">Tổng sản lượng: ${parseFloat(totalBaseDailyOutput.toFixed(1))} đv</div>
           </div>
         </div>
 
@@ -486,7 +500,7 @@
               <span>🏢</span> ${roomTitle}
             </h3>
             <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">
-              ${t('dailyOutLabel', { out: simRes.dailyOutputAvg })} | ${t('dailyEffLabel', { eff: simRes.dailyAvgEfficiency })}
+              ${t('dailyOutLabel', { out: simRes.dailyOutputAvg, san: simRes.sanityDaily })} | ${t('dailyEffLabel', { eff: simRes.dailyAvgEfficiency })}
             </div>
           </div>
 
@@ -828,14 +842,23 @@
       };
     }
 
-    document.querySelectorAll('.weight-slider').forEach(sl => {
-      sl.oninput = (e) => {
+    document.querySelectorAll('.weight-number-input').forEach(inp => {
+      inp.onchange = (e) => {
         const wKey = e.target.getAttribute('data-weight');
-        state.weights[wKey] = parseFloat(e.target.value);
+        state.weights[wKey] = Math.max(0, parseFloat(e.target.value) || 1.0);
         saveSettings();
         updateOptimizer();
       };
     });
+
+    const btnResetW = document.getElementById('btnResetWeights');
+    if (btnResetW) {
+      btnResetW.onclick = () => {
+        state.weights = { char_exp: 1.0, weapon_exp: 1.0, plant: 1.0, mineral: 1.0, fungus: 1.0, clue: 1.0 };
+        saveSettings();
+        updateOptimizer();
+      };
+    }
 
     // Ô NHẬP SỐ GIỜ
     document.querySelectorAll('.room-x-input').forEach(inp => {

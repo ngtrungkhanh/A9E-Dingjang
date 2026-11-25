@@ -354,6 +354,9 @@
     const dailyOutputAvg = parseFloat((totalCycleOutput / days).toFixed(1));
     const dailyAvgEfficiency = Math.round((dailyOutputAvg / 24.0) * 100);
 
+    const sanRate = (SANITY_PER_UNIT && SANITY_PER_UNIT[roomKey]) || (11.5508 / 24.0);
+    const sanityDaily = parseFloat((dailyOutputAvg * sanRate).toFixed(1));
+
     return {
       m1,
       m2,
@@ -362,6 +365,7 @@
       shift2Duration,
       dailyOutputAvg,
       dailyAvgEfficiency,
+      sanityDaily,
       depletedHourShift1,
       depletedHourShift2
     };
@@ -393,6 +397,19 @@
     return { bestX, maxDailyOutput };
   }
 
+  // Tỷ lệ Sanity quy đổi trên mỗi đơn vị giờ sản lượng chuẩn (1.0x Base Rate)
+  // Dựa trên dữ liệu 177h46p40s (640,000s) ở hiệu suất 220%:
+  // - Weapon EXP: 40 cái -> 5.4 cái/ngày ở 220% (2.455 cái/ngày ở 100%) -> 11.5508 Sanity/ngày
+  // - Op EXP (61-80): 16 cái -> 2.16 cái/ngày ở 220% (0.982 cái/ngày ở 100%) -> 11.5508 Sanity/ngày
+  // - Growth Chamber: 30% Weapon EXP -> 3.4652 Sanity/ngày ở 100%
+  // - Reception Room: 50% Weapon EXP -> 5.7754 Sanity/ngày ở 100%
+  const SANITY_PER_UNIT = {
+    mfg1: 11.5508 / 24.0,       // ~0.48128 Sanity / đơn vị giờ
+    mfg2: 11.5508 / 24.0,       // ~0.48128 Sanity / đơn vị giờ
+    growth: (11.5508 * 0.3) / 24.0, // ~0.14438 Sanity / đơn vị giờ
+    reception: (11.5508 * 0.5) / 24.0 // ~0.24064 Sanity / đơn vị giờ
+  };
+
   function cloneAssignment(a) {
     const res = {};
     for (const r in a) {
@@ -421,8 +438,12 @@
         reg1,
         reg2
       );
-      const w = (r === 'mfg1') ? (weights.char_exp || 1) : (r === 'mfg2') ? (weights.weapon_exp || 1) : (r === 'growth') ? (weights.plant || 1) : (weights.clue || 1);
-      totalScore += opt.maxDailyOutput * w;
+      const w = (r === 'mfg1') ? (weights.char_exp !== undefined ? weights.char_exp : 1.0)
+              : (r === 'mfg2') ? (weights.weapon_exp !== undefined ? weights.weapon_exp : 1.0)
+              : (r === 'growth') ? (weights.plant !== undefined ? weights.plant : 1.0)
+              : (weights.clue !== undefined ? weights.clue : 1.0);
+      const sanValue = opt.maxDailyOutput * (SANITY_PER_UNIT[r] || (11.5508 / 24.0));
+      totalScore += sanValue * w;
     }
     return totalScore;
   }
@@ -662,7 +683,8 @@
     findOptimalXForRoom,
     findOptimalNexusX,
     getSkillEffectSummary,
-    getUpgradeRecommendations
+    getUpgradeRecommendations,
+    SANITY_PER_UNIT
   };
 
 })(window);
