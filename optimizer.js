@@ -121,8 +121,8 @@
     return buffScore + redScore;
   }
 
-  // 1 CÁN VIÊN CHỈ Ở ĐÚNG 1 PHÒNG
-  function assignDistinctRooms(operators, roomConfigs, weights) {
+  // 1 CÁN VIÊN CHỈ Ở ĐÚNG 1 PHÒNG - KHỞI TẠO THAM LAM & TỐI ƯU HÓA HOÁN ĐỔI TOÀN CỤC (GLOBAL SWAP OPTIMIZER)
+  function assignDistinctRooms(operators, roomConfigs, weights, cycleDays) {
     const prodRooms = ['mfg1', 'mfg2', 'growth', 'reception'];
     prodRooms.sort((a, b) => {
       const getW = (r) => {
@@ -161,12 +161,6 @@
       candidates.sort((a, b) => b.score - a.score);
 
       if (rKey === 'nexus') {
-        // Với Trung Tâm Kiểm Soát:
-        // Đa số các phòng sản xuất bố trí Ca 1 là team mạnh nhất (làm từ 00:00 -> x, và chỉ nghỉ từ x -> 24:00).
-        // Ngược lại, Ca 2 sản xuất (team phụ) nghỉ từ 00:00 -> x (thời gian nghỉ rất dài, 11h-19h nên không lo thiếu stamina).
-        // Do đó: Nhóm 3 cán viên có buff Tái Tạo Tâm Trạng cao nhất (+48%) PHẢI TRỰC Ở CA 2 (từ x -> 24:00)
-        // để hỗ trợ nạp stamina cấp tốc cho Team 1 chủ lực ngay khi họ đổi ca về nghỉ ngơi!
-        // Ca 1 của Nexus (trực 00:00 -> x) bố trí nhóm buff phụ.
         const strongNexusOps = candidates.slice(0, cap).map(c => c.op);
         strongNexusOps.forEach(op => usedOperators.add(op.name));
 
@@ -193,7 +187,9 @@
       }
     }
 
-    return assignment;
+    // TỐI ƯU TOÀN CỤC: Giải quyết xung đột cán viên có 2 skill ở 2 phòng khác nhau
+    // và liên kết chặt chẽ với tốc độ hồi phục của Control Nexus
+    return optimizeGlobalSwaps(assignment, roomConfigs, weights, cycleDays || 3);
   }
 
   function getSkillEffectSummary(op, cabinEn, targetTypes) {
@@ -397,6 +393,109 @@
     return { bestX, maxDailyOutput };
   }
 
+  function cloneAssignment(a) {
+    const res = {};
+    for (const r in a) {
+      res[r] = {
+        shift1: [...a[r].shift1],
+        shift2: [...a[r].shift2]
+      };
+    }
+    return res;
+  }
+
+  function evaluateGlobalBaseScore(assign, roomConfigs, weights, cycleDays = 3) {
+    const reg1 = calculateNexusRegenSpeed(assign.nexus.shift1);
+    const reg2 = calculateNexusRegenSpeed(assign.nexus.shift2);
+    let totalScore = 0;
+
+    for (const r of ['mfg1', 'mfg2', 'growth', 'reception']) {
+      const cfg = roomConfigs[r];
+      const opt = findOptimalXForRoom(
+        r,
+        assign[r].shift1,
+        assign[r].shift2,
+        cfg.cabin,
+        cfg.types,
+        cycleDays,
+        reg1,
+        reg2
+      );
+      const w = (r === 'mfg1') ? (weights.char_exp || 1) : (r === 'mfg2') ? (weights.weapon_exp || 1) : (r === 'growth') ? (weights.plant || 1) : (weights.clue || 1);
+      totalScore += opt.maxDailyOutput * w;
+    }
+    return totalScore;
+  }
+
+  // TỐI ƯU HÓA HOÁN ĐỔI TOÀN CỤC (GLOBAL 2-SWAP LOCAL SEARCH)
+  // Giải quyết triệt để vấn đề cán viên có 2 skill ở các phòng khác nhau và liên kết stamina với Nexus
+  function optimizeGlobalSwaps(curAssign, roomConfigs, weights, cycleDays = 3) {
+    let bestAssign = cloneAssignment(curAssign);
+    let bestScore = evaluateGlobalBaseScore(bestAssign, roomConfigs, weights, cycleDays);
+    const rooms = ['nexus', 'mfg1', 'mfg2', 'growth', 'reception'];
+    const shifts = ['shift1', 'shift2'];
+
+    let improved = true;
+    let pass = 0;
+    while (improved && pass < 5) {
+      improved = false;
+      pass++;
+      const slots = [];
+      rooms.forEach(r => {
+        shifts.forEach(s => {
+          bestAssign[r][s].forEach((op, idx) => {
+            slots.push({ room: r, shift: s, idx, op });
+          });
+        });
+      });
+
+      for (let i = 0; i < slots.length; i++) {
+        for (let j = i + 1; j < slots.length; j++) {
+          const s1 = slots[i];
+          const s2 = slots[j];
+          if (s1.room === s2.room) continue;
+
+          const candidate = cloneAssignment(bestAssign);
+          candidate[s1.room][s1.shift][s1.idx] = s2.op;
+          candidate[s2.room][s2.shift][s2.idx] = s1.op;
+
+          const score = evaluateGlobalBaseScore(candidate, roomConfigs, weights, cycleDays);
+          if (score > bestScore + 0.1) {
+            bestScore = score;
+            bestAssign = candidate;
+            improved = true;
+            break;
+          }
+        }
+        if (improved) break;
+      }
+    }
+
+    // Đảm bảo sau tối ưu: Trong sản xuất, Ca 1 luôn là ca có hiệu suất cao hơn; Trong Nexus, Ca 2 có buff hồi phục cao hơn
+    for (const r of rooms) {
+      if (r === 'nexus') {
+        const reg1 = calculateNexusRegenSpeed(bestAssign.nexus.shift1);
+        const reg2 = calculateNexusRegenSpeed(bestAssign.nexus.shift2);
+        if (reg1.totalBuffPct > reg2.totalBuffPct) {
+          const tmp = bestAssign.nexus.shift1;
+          bestAssign.nexus.shift1 = bestAssign.nexus.shift2;
+          bestAssign.nexus.shift2 = tmp;
+        }
+      } else {
+        const cfg = roomConfigs[r];
+        const m1 = calculateTeamMetrics(bestAssign[r].shift1, cfg.cabin, cfg.types, 7.2);
+        const m2 = calculateTeamMetrics(bestAssign[r].shift2, cfg.cabin, cfg.types, 7.2);
+        if (m2.totalEffPct > m1.totalEffPct) {
+          const tmp = bestAssign[r].shift1;
+          bestAssign[r].shift1 = bestAssign[r].shift2;
+          bestAssign[r].shift2 = tmp;
+        }
+      }
+    }
+
+    return bestAssign;
+  }
+
   // Tối ưu mốc đổi ca cho Control Nexus:
   // Cân đối thời gian đổi ca của Nexus sao cho ca Nexus mạnh nhất (Ca 2) bắt đầu sớm đủ để đón
   // các đợt đổi ca về nghỉ của các cán viên Ca 1 chủ lực ở các phòng sản xuất
@@ -415,7 +514,16 @@
     return Math.max(8, Math.min(14, earliestProdX));
   }
 
+  // TÍNH TOÁN CHI PHÍ SANITY/STAMINA THEO BẢNG QUY ĐỔI CHUẨN (A9E_SANITY_DATA)
   function calculateLevelUpCost(curLvl, targetLvl) {
+    if (typeof window !== 'undefined' && window.A9E_SANITY_DATA && typeof window.A9E_SANITY_DATA.calculateSanityToMilestone === 'function') {
+      let targetMilestone = 1;
+      if (targetLvl >= 80) targetMilestone = 4;
+      else if (targetLvl >= 60) targetMilestone = 3;
+      else if (targetLvl >= 40) targetMilestone = 2;
+      return window.A9E_SANITY_DATA.calculateSanityToMilestone(curLvl, targetMilestone);
+    }
+    // Fallback nếu chưa nạp thư viện Sanity
     let cost = 0;
     if (curLvl < 10 && targetLvl >= 10) cost += 1;
     if (curLvl < 20 && targetLvl >= 20) cost += 2;
@@ -489,11 +597,11 @@
             rarity: op.rarity || '5',
             curLvl: lvl,
             targetLvl,
-            cost,
+            cost: parseFloat(cost.toFixed(1)),
             cabin: s2.cabin_vi,
             shortBenefit: `Mở mới: ${shortBenefit}`,
             effGain,
-            roi: parseFloat((effGain / Math.max(1, cost)).toFixed(2))
+            roi: parseFloat(((effGain / Math.max(1, cost)) * 100).toFixed(2))
           });
         }
       }
@@ -510,11 +618,11 @@
             rarity: op.rarity || '5',
             curLvl: lvl,
             targetLvl,
-            cost,
+            cost: parseFloat(cost.toFixed(1)),
             cabin: s1.cabin_vi,
             shortBenefit: `Nâng lên: ${shortBenefit}`,
             effGain,
-            roi: parseFloat((effGain / Math.max(1, cost)).toFixed(2))
+            roi: parseFloat(((effGain / Math.max(1, cost)) * 100).toFixed(2))
           });
         }
       }
@@ -531,11 +639,11 @@
             rarity: op.rarity || '5',
             curLvl: lvl,
             targetLvl,
-            cost,
+            cost: parseFloat(cost.toFixed(1)),
             cabin: s2.cabin_vi,
             shortBenefit: `Nâng lên: ${shortBenefit}`,
             effGain,
-            roi: parseFloat((effGain / Math.max(1, cost)).toFixed(2))
+            roi: parseFloat(((effGain / Math.max(1, cost)) * 100).toFixed(2))
           });
         }
       }

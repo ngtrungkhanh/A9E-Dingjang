@@ -59,7 +59,7 @@
       nexusShift1Regen: "Ca 1 buff +{buff}% ➔ Tốc độ hồi: {real}%/h (Ingame hiển thị: {ingame}%/h)",
       nexusShift2Regen: "Ca 2 buff +{buff}% ➔ Tốc độ hồi: {real}%/h (Ingame hiển thị: {ingame}%/h)",
       recTitle: "🚀 Đề Xuất Nâng Cấp Cán Viên Mở Thêm Skill (Xếp Theo ROI / Chi Phí Vốn)",
-      recSub: "Tiền vốn tính theo mốc level: 1-10=1, 11-20=2, 20-30=4, 30-40=8, 40-60=16, 60-80=32 (Đã loại bỏ các skill xác suất manh mối)",
+      recSub: "Chi phí quy đổi theo Stamina/Sanity chuẩn (Ải 80 San: EXP, T-Creds, Đột phá E1-E4 & Node Skill. Đã loại bỏ skill xác suất)",
       recEmpty: "Tất cả cán viên hiện có đều đã mở tối đa kỹ năng căn cứ!",
       recNeedAccount: "Vui lòng chọn chế độ 'Tài Khoản Của Tôi' để xem danh sách nâng cấp riêng cho kho cán viên của bạn.",
       modalTitle: "Cập Nhật Dữ Liệu Nhân Vật (100% Offline & Cache Local)",
@@ -126,7 +126,7 @@
       nexusShift1Regen: "Shift 1 buff +{buff}% ➔ Regen speed: {real}%/h (Ingame: {ingame}%/h)",
       nexusShift2Regen: "Shift 2 buff +{buff}% ➔ Regen speed: {real}%/h (Ingame: {ingame}%/h)",
       recTitle: "🚀 Operator Level Up Recommendations (Ranked by Cost-to-Efficiency ROI)",
-      recSub: "Level up costs: 1-10=1, 11-20=2, 20-30=4, 30-40=8, 40-60=16, 60-80=32 (Clue chance skills excluded)",
+      recSub: "Calibrated via standardized Sanity costs (80-San stages: EXP, T-Creds, Promo E1-E4 & Skill Nodes. Clue chance excluded)",
       recEmpty: "All currently owned operators have unlocked maximum base skills!",
       recNeedAccount: "Please switch to 'My Account' mode to see upgrade recommendations for your roster.",
       modalTitle: "Update Operator Data (100% Offline & Local Cache)",
@@ -209,7 +209,7 @@
       reception: { cabin: 'Reception Room', types: ['clue'], cap: 3 }
     };
 
-    const assignment = A9EOptimizer.assignDistinctRooms(ops, roomConfigs, state.weights);
+    const assignment = A9EOptimizer.assignDistinctRooms(ops, roomConfigs, state.weights, state.cycleDays);
 
     const nexusRegen1 = A9EOptimizer.calculateNexusRegenSpeed(assignment.nexus.shift1);
     const nexusRegen2 = A9EOptimizer.calculateNexusRegenSpeed(assignment.nexus.shift2);
@@ -685,12 +685,12 @@
           </div>
           <div style="display:flex; align-items:center; gap:1rem; text-align:right;">
             <div>
-              <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Vốn</div>
-              <div style="font-family:var(--font-mono); font-weight:700; font-size:0.95rem; color:#f87171;">${r.cost}</div>
+              <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Vốn Sanity</div>
+              <div style="font-family:var(--font-mono); font-weight:700; font-size:0.95rem; color:#f87171;">${r.cost} San</div>
             </div>
             <div>
-              <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">ROI</div>
-              <div style="font-family:var(--font-mono); font-weight:800; font-size:1.1rem; color:#34d399;">${r.roi}</div>
+              <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">ROI (/100 San)</div>
+              <div style="font-family:var(--font-mono); font-weight:800; font-size:1.1rem; color:#34d399;">${r.roi}%</div>
             </div>
           </div>
         </div>

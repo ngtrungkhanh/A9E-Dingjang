@@ -1,0 +1,329 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "description": "Dữ liệu quy đổi Stamina/Sanity và chi phí tài nguyên nâng cấp cán viên Arknights: Endfield để tối ưu hóa hậu cần",
+    "updatedAt": "2026-11-26",
+    "source": "endfield.wiki.gg (Protocol Spaces tier 80 Sanity) & SKPORT Wiki"
+  },
+  "sanityRates": {
+    "tcreds": {
+      "name": "T-Creds",
+      "itemId": "642",
+      "unit": "T-Cred",
+      "sanityPerUnit": 0.002352941176470588,
+      "unitsPerSanity": 425.0,
+      "benchmark": "80 Sanity = 34,000 T-Creds"
+    },
+    "operatorExpLv1To60": {
+      "name": "Operator EXP (Level 1-60)",
+      "unit": "EXP",
+      "sourceItem": "Advanced Combat Record",
+      "sourceItemExp": 10000,
+      "sanityPerUnit": 0.00047058823529411766,
+      "unitsPerSanity": 2125.0,
+      "benchmark": "80 Sanity = 17x Advanced Combat Record (170,000 EXP)"
+    },
+    "operatorExpLv61To80": {
+      "name": "Operator EXP (Level 61-80+)",
+      "unit": "EXP",
+      "sourceItem": "Cognitive Carrier (Adv 10k + Elem 1k)",
+      "sanityPerUnit": 0.001176470588235294,
+      "unitsPerSanity": 850.0,
+      "benchmark": "80 Sanity = 6x Adv Cog Carrier (60k) + 8x Elem Cog Carrier (8k) = 68,000 EXP"
+    },
+    "protoprism": {
+      "name": "Protoprism",
+      "itemId": "109",
+      "unit": "Item",
+      "sanityPerUnit": 0.9411764705882353,
+      "benchmark": "Protocol Space: Skill Up (Tier 80) Set A: 85 Protoprism"
+    },
+    "protohedron": {
+      "name": "Protohedron",
+      "itemId": "110",
+      "unit": "Item",
+      "sanityPerUnit": 4.705882352941177,
+      "benchmark": "Protocol Space: Skill Up (Tier 80) Set B: 17 Protohedron"
+    },
+    "protodisk": {
+      "name": "Protodisk",
+      "itemId": "107",
+      "unit": "Item",
+      "sanityPerUnit": 2.3529411764705883,
+      "benchmark": "Protocol Space: Promotions (Tier 80) Set A: 34 Protodisk"
+    },
+    "protoset": {
+      "name": "Protoset",
+      "itemId": "108",
+      "unit": "Item",
+      "sanityPerUnit": 5.714285714285714,
+      "benchmark": "Protocol Space: Promotions (Tier 80) Set B: 14 Protoset"
+    },
+    "rareProgressionMaterial": {
+      "name": "Rare Progression Material",
+      "unit": "Item",
+      "sanityPerUnit": 13.333333333333334,
+      "benchmark": "Hazardous Material: 1 item per 13.33 Sanity"
+    },
+    "weaponExp": {
+      "name": "Weapon EXP",
+      "unit": "W-EXP",
+      "sanityPerUnit": 0.00047058823529411766,
+      "unitsPerSanity": 2125.0,
+      "benchmark": "Protocol Space: Weapon EXP (Tier 80): 16x Arms INSP Set + 10x Arms INSP Kit = 170,000 W-EXP"
+    },
+    "castDie": {
+      "name": "Cast Die",
+      "unit": "Item",
+      "sanityPerUnit": 2.3529411764705883,
+      "benchmark": "Protocol Space: Weapon Tune (Tier 80) Set A: 34 Cast Die"
+    },
+    "heavyCastDie": {
+      "name": "Heavy Cast Die",
+      "unit": "Item",
+      "sanityPerUnit": 5.714285714285714,
+      "benchmark": "Protocol Space: Weapon Tune (Tier 80) Set B: 14 Heavy Cast Die"
+    },
+    "fungalAndPlants": {
+      "name": "Fungal Matter & Vitrified Plants",
+      "unit": "Item",
+      "sanityPerUnit": 0.0,
+      "benchmark": "Free from Growth Chamber (Dijiang) or Overworld gather"
+    }
+  },
+  "protocolSpacesTier80": {
+    "operatorExp": {
+      "stageName": "Manifested Nightmares",
+      "costSanity": 80,
+      "setA": {
+        "advancedCombatRecord": 17,
+        "totalExp": 170000
+      },
+      "setB": {
+        "advancedCognitiveCarrier": 6,
+        "elementaryCognitiveCarrier": 8,
+        "totalExp": 68000
+      }
+    },
+    "promotions": {
+      "stageName": "Tacit Maelstrom",
+      "costSanity": 80,
+      "setA": {
+        "protodisk": 34
+      },
+      "setB": {
+        "protoset": 14
+      }
+    },
+    "skillUp": {
+      "stageName": "Mirage of the Tower",
+      "costSanity": 80,
+      "setA": {
+        "protoprism": 85
+      },
+      "setB": {
+        "protohedron": 17
+      }
+    },
+    "weaponExp": {
+      "stageName": "Gunsmith's Mound",
+      "costSanity": 80,
+      "reward": {
+        "armsInspSet": 16,
+        "armsInspKit": 10,
+        "totalWeaponExp": 170000
+      }
+    },
+    "weaponTune": {
+      "stageName": "Forge Trials Lv.5",
+      "costSanity": 80,
+      "setA": {
+        "castDie": 34
+      },
+      "setB": {
+        "heavyCastDie": 14
+      }
+    }
+  },
+  "operatorLeveling": {
+    "1_to_20": {
+      "exp": 22860,
+      "tcreds": 820,
+      "expType": "Combat Record"
+    },
+    "20_to_40": {
+      "exp": 248540,
+      "tcreds": 12540,
+      "expType": "Combat Record"
+    },
+    "40_to_60": {
+      "exp": 475710,
+      "tcreds": 23900,
+      "expType": "Combat Record"
+    },
+    "60_to_80": {
+      "exp": 465230,
+      "tcreds": 109180,
+      "expType": "Cognitive Carrier"
+    },
+    "80_to_90": {
+      "exp": 579950,
+      "tcreds": 238980,
+      "expType": "Cognitive Carrier"
+    },
+    "cumulativeFromLevel1": {
+      "lv20": {
+        "totalExp": 22860,
+        "totalTcreds": 820
+      },
+      "lv40": {
+        "totalExp": 271400,
+        "totalTcreds": 13360
+      },
+      "lv60": {
+        "totalExp": 747110,
+        "totalTcreds": 37260
+      },
+      "lv80": {
+        "totalExp": 1212340,
+        "totalTcreds": 146440
+      },
+      "lv90": {
+        "totalExp": 1792290,
+        "totalTcreds": 385420
+      }
+    }
+  },
+  "baseSkillMilestones": {
+    "m1": {
+      "milestone": 1,
+      "name": "Base Skill 1 (Rank 1)",
+      "targetLevel": 20,
+      "promotion": "Promotion I (E1)",
+      "requirements": {
+        "levelRange": "1 -> 20",
+        "levelExp": 22860,
+        "levelTcreds": 820,
+        "promotionTcreds": 1600,
+        "protodisk": 8,
+        "fungalMatter": 3,
+        "skillProtoprism": 6,
+        "skillTcreds": 1600
+      },
+      "resourceSummary": {
+        "exp": 22860,
+        "tcreds": 4020,
+        "protodisk": 8,
+        "protoprism": 6
+      },
+      "sanityBreakdown": {
+        "expSanity": 10.76,
+        "tcredsSanity": 9.46,
+        "protodiskSanity": 18.82,
+        "protoprismSanity": 5.65,
+        "totalSanityStep": 44.69,
+        "cumulativeSanity": 44.69
+      },
+      "roiTier": "S+++ (Siêu hời: ~45 Sanity để kích hoạt skill đầu tiên)"
+    },
+    "m2": {
+      "milestone": 2,
+      "name": "Base Skill 2 (Rank 1)",
+      "targetLevel": 40,
+      "promotion": "Promotion II (E2)",
+      "requirements": {
+        "levelRange": "20 -> 40",
+        "levelExp": 248540,
+        "levelTcreds": 12540,
+        "outfittingTcreds": 1800,
+        "promotionTcreds": 6500,
+        "protodisk": 25,
+        "fungalMatter": 5,
+        "skillProtoprism": 12,
+        "skillTcreds": 3000
+      },
+      "resourceSummary": {
+        "exp": 248540,
+        "tcreds": 23840,
+        "protodisk": 25,
+        "protoprism": 12
+      },
+      "sanityBreakdown": {
+        "expSanity": 116.96,
+        "tcredsSanity": 56.09,
+        "protodiskSanity": 58.82,
+        "protoprismSanity": 11.29,
+        "totalSanityStep": 243.17,
+        "cumulativeSanity": 287.86
+      },
+      "roiTier": "S+ (Rất hời: ~243 Sanity để mở trọn 2 nhánh kỹ năng)"
+    },
+    "m3": {
+      "milestone": 3,
+      "name": "Base Skill 1 (Rank 2)",
+      "targetLevel": 60,
+      "promotion": "Promotion III (E3)",
+      "requirements": {
+        "levelRange": "40 -> 60",
+        "levelExp": 475710,
+        "levelTcreds": 23900,
+        "outfittingTcreds": 6500,
+        "promotionTcreds": 18000,
+        "protoset": 24,
+        "fungalMatter": 5,
+        "skillProtohedron": 12,
+        "skillTcreds": 8000
+      },
+      "resourceSummary": {
+        "exp": 475710,
+        "tcreds": 56400,
+        "protoset": 24,
+        "protohedron": 12
+      },
+      "sanityBreakdown": {
+        "expSanity": 223.86,
+        "tcredsSanity": 132.71,
+        "protosetSanity": 137.14,
+        "protohedronSanity": 56.47,
+        "totalSanityStep": 550.18,
+        "cumulativeSanity": 838.04
+      },
+      "roiTier": "A (Khá tốt: ~550 Sanity để max nhánh 1 cho nhân sự nòng cốt)"
+    },
+    "m4": {
+      "milestone": 4,
+      "name": "Base Skill 2 (Rank 2)",
+      "targetLevel": 80,
+      "promotion": "Promotion IV (E4)",
+      "requirements": {
+        "levelRange": "60 -> 80",
+        "levelExp": 465230,
+        "levelTcreds": 109180,
+        "outfittingTcreds": 18000,
+        "promotionTcreds": 100000,
+        "protoset": 36,
+        "fungalMatter": 8,
+        "rareProgressionMaterials": 20,
+        "skillProtohedron": 20,
+        "skillTcreds": 20000
+      },
+      "resourceSummary": {
+        "exp": 465230,
+        "tcreds": 247180,
+        "protoset": 36,
+        "protohedron": 20,
+        "rareMaterials": 20
+      },
+      "sanityBreakdown": {
+        "expSanity": 547.33,
+        "tcredsSanity": 581.6,
+        "protosetSanity": 205.71,
+        "protohedronSanity": 94.12,
+        "rareMaterialsSanity": 266.67,
+        "totalSanityStep": 1695.43,
+        "cumulativeSanity": 2533.47
+      },
+      "roiTier": "B/C (Rất đắt: ~1,695 Sanity, chỉ nên up cho buff toàn trạm)"
+    }
+  }
+}
