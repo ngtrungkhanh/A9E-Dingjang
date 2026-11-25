@@ -454,6 +454,19 @@
             <span>• ${t('nexusShift1Regen', { buff: nexusRegen1.totalBuffPct, real: nexusRegen1.realSpeed, ingame: nexusRegen1.ingameSpeed })}</span>
             <span>• ${t('nexusShift2Regen', { buff: nexusRegen2.totalBuffPct, real: nexusRegen2.realSpeed, ingame: nexusRegen2.ingameSpeed })}</span>
           </div>
+
+          <!-- Máy tính tra cứu thời gian hồi Stamina nhanh -->
+          <div style="margin-top:0.75rem; padding-top:0.6rem; border-top:1px dashed rgba(6,182,212,0.2); display:flex; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+            <span style="font-size:0.8rem; color:var(--text-primary); font-weight:600;">Tra cứu nhanh thời gian hồi phục:</span>
+            <div style="display:flex; align-items:center; gap:0.4rem;">
+              <span style="font-size:0.78rem; color:var(--text-secondary);">Stamina hiện tại:</span>
+              <input type="number" id="quickStaminaInput" min="0" max="99" value="37" style="width:55px; background:#0b0e14; color:#38bdf8; border:1px solid rgba(255,255,255,0.15); border-radius:4px; padding:0.2rem 0.4rem; font-family:var(--font-mono); font-size:0.8rem; text-align:center;" />
+              <span style="font-size:0.78rem; color:var(--text-secondary);">%</span>
+            </div>
+            <div id="quickStaminaResult" style="font-size:0.8rem; font-family:var(--font-mono); color:#fbbf24;">
+              <!-- Sẽ render tự động -->
+            </div>
+          </div>
         </div>
       </div>
 
@@ -475,7 +488,7 @@
       </footer>
     `;
 
-    bindEvents(autoXSuggestions);
+    bindEvents(autoXSuggestions, nexusRegen1, nexusRegen2);
   }
 
   // Render Card cho từng phòng sản xuất
@@ -663,7 +676,28 @@
     `;
   }
 
-  function bindEvents(autoXSuggestions) {
+  function bindEvents(autoXSuggestions, nexusRegen1, nexusRegen2) {
+    // Quick Stamina Calculator
+    const stamInput = document.getElementById('quickStaminaInput');
+    const stamRes = document.getElementById('quickStaminaResult');
+    function updateQuickStam() {
+      if (!stamInput || !stamRes) return;
+      const s = Math.min(99, Math.max(0, parseInt(stamInput.value, 10) || 0));
+      const need = 100 - s;
+      const t0Mins = Math.round((need / 12.0) * 60);
+      const t1Mins = Math.round((need / (nexusRegen1 ? nexusRegen1.realSpeed : 12.0)) * 60);
+      const t2Mins = Math.round((need / (nexusRegen2 ? nexusRegen2.realSpeed : 12.0)) * 60);
+
+      const f0 = `${Math.floor(t0Mins / 60)}h${t0Mins % 60 < 10 ? '0' : ''}${t0Mins % 60}p`;
+      const f1 = `${Math.floor(t1Mins / 60)}h${t1Mins % 60 < 10 ? '0' : ''}${t1Mins % 60}p`;
+      const f2 = `${Math.floor(t2Mins / 60)}h${t2Mins % 60 < 10 ? '0' : ''}${t2Mins % 60}p`;
+
+      stamRes.innerHTML = `➔ Không buff: <strong>${f0}</strong> | Nexus Ca 1: <strong>${f1}</strong> | Nexus Ca 2: <strong>${f2}</strong>`;
+    }
+    if (stamInput) {
+      stamInput.oninput = updateQuickStam;
+      updateQuickStam();
+    }
     const btnVi = document.getElementById('btnLangVi');
     const btnEn = document.getElementById('btnLangEn');
     if (btnVi) btnVi.onclick = () => { state.lang = 'vi'; saveSettings(); updateOptimizer(); };
