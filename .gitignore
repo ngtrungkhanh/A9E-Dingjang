@@ -6,5 +6,6 @@ endfield_card_detail.json
 
 # Scratch & temporary files
 scratch/
+skport-operators/
 *.pyc
 __pycache__/

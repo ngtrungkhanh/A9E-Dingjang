@@ -1,20 +1,19 @@
 /**
- * A9E Dingjang Logistics Optimizer Core (v2.1)
+ * A9E Dingjang Logistics Optimizer Core (v2.3)
  * Author: Antigravity
- * Nexus 3 slots, Đề xuất nâng cấp ROI, Không dùng w_nexus
+ * - Bỏ skill tăng xác suất manh mối khỏi đề xuất
+ * - Tối ưu thời gian thay ca Control Nexus theo giờ nghỉ của các khoang
+ * - Mô phỏng stamina chuẩn xác: CHỈ HỒI KHI NGHỈ
  */
 
 (function (window) {
   'use strict';
 
-  // Chuẩn hóa kỹ năng của 1 cán viên theo trạng thái mở khóa thực tế
   function parseSkillsForCabin(charData, cabinEn, isUserOwned, userUnlockedSkills) {
     const slots = charData.slots || [];
     let buffs = { char_exp: 0, weapon_exp: 0, plant: 0, mineral: 0, fungus: 0, clue: 0 };
     let red = 0;
     let regen = 0;
-    let activeSkillNames = [];
-    let activeSkillDescs = [];
 
     for (const slot of slots) {
       if (slot.cabin_en !== cabinEn) continue;
@@ -22,7 +21,6 @@
       let chosenLevel = null;
       const levels = slot.levels || [];
       if (isUserOwned && userUnlockedSkills) {
-        // Chỉ nhận kỹ năng mà tài khoản ĐÃ MỞ KHÓA
         for (let i = levels.length - 1; i >= 0; i--) {
           if (userUnlockedSkills.includes(levels[i].skill_id)) {
             chosenLevel = levels[i];
@@ -36,12 +34,8 @@
       if (!chosenLevel) continue;
 
       const desc = chosenLevel.desc_vi || chosenLevel.desc_en || '';
-      const name = chosenLevel.name_vi || chosenLevel.name_en || '';
       const pcts = (desc.match(/(\d+)%/g) || []).map(p => parseInt(p, 10));
       const val = pcts.length > 0 ? pcts[0] : 0;
-
-      activeSkillNames.push(name);
-      activeSkillDescs.push(desc);
 
       if (cabinEn === 'Control Nexus' || desc.includes('Tái Tạo Tâm Trạng')) {
         regen = Math.max(regen, val);
@@ -59,10 +53,9 @@
       }
     }
 
-    return { buffs, red, regen, activeSkillNames, activeSkillDescs };
+    return { buffs, red, regen };
   }
 
-  // Parse toàn bộ danh sách cán viên
   function parseAllOperators(fullSkillsData, userRosterData, useUserRoster) {
     const list = [];
     const userOpMap = {};
@@ -106,12 +99,10 @@
     return list;
   }
 
-  // Đánh giá điểm cán viên cho 1 phòng
   function evaluateOperatorForRoom(op, cabinEn, targetTypes, weights) {
     const sk = op.skills[cabinEn];
     if (!sk) return 0;
 
-    // Tái tạo tâm trạng Nexus được đánh giá theo giá trị phục hồi
     if (cabinEn === 'Control Nexus') {
       return (sk.regen || 0) * 1.5;
     }
@@ -130,10 +121,8 @@
     return buffScore + redScore;
   }
 
-  // Phân bổ cán viên vào 5 phòng: 1 CÁN VIÊN CHỈ ĐƯỢC Ở ĐÚNG 1 PHÒNG
-  // Thứ tự: Control Nexus -> MFG 1 -> MFG 2 -> Growth -> Reception
+  // 1 CÁN VIÊN CHỈ Ở ĐÚNG 1 PHÒNG
   function assignDistinctRooms(operators, roomConfigs, weights) {
-    // Thứ tự phòng ưu tiên: Nexus luôn được phân bổ hợp lý, tiếp theo là các phòng sản xuất theo trọng số
     const prodRooms = ['mfg1', 'mfg2', 'growth', 'reception'];
     prodRooms.sort((a, b) => {
       const getW = (r) => {
@@ -171,11 +160,9 @@
 
       candidates.sort((a, b) => b.score - a.score);
 
-      // Ca 1 (tối đa cap)
       const shift1Ops = candidates.slice(0, cap).map(c => c.op);
       shift1Ops.forEach(op => usedOperators.add(op.name));
 
-      // Ca 2 (tối đa cap)
       const remainingCandidates = candidates.slice(cap).filter(c => !usedOperators.has(c.op.name));
       const shift2Ops = remainingCandidates.slice(0, cap).map(c => c.op);
       shift2Ops.forEach(op => usedOperators.add(op.name));
@@ -189,7 +176,6 @@
     return assignment;
   }
 
-  // Lấy tóm tắt hiệu ứng kỹ năng của cán viên cho phòng cụ thể
   function getSkillEffectSummary(op, cabinEn, targetTypes) {
     const sk = op.skills[cabinEn];
     if (!sk) return 'Không có hiệu ứng đặc biệt';
@@ -219,7 +205,6 @@
     return parts.length > 0 ? parts.join(', ') : 'Nền +40% hiệu suất';
   }
 
-  // Tính thông số hiệu suất và tốc độ hao của team
   function calculateTeamMetrics(teamMembers, cabinEn, targetTypes, baseBurnRate) {
     const n = teamMembers.length;
     const baseEff = 1.0 + 0.4 * n;
@@ -263,7 +248,6 @@
     };
   }
 
-  // Tốc độ hồi Stamina Nexus: 12%/h * (1 + sum(buff)/100)
   function calculateNexusRegenSpeed(nexusMembers) {
     let totalBuffPct = 0;
     for (const op of nexusMembers) {
@@ -281,7 +265,7 @@
     };
   }
 
-  // Mô phỏng chu kỳ độc lập cho 1 phòng (CHỈ HỒI STAMINA KHI NGHỈ)
+  // Mô phỏng chu kỳ độc lập (CHỈ HỒI KHI NGHỈ)
   function simulateRoomCycle(roomKey, teamShift1, teamShift2, cabinEn, targetTypes, x, cycleDays, nexusShift1Regen, nexusShift2Regen) {
     const days = Math.max(1, cycleDays || 1);
     const m1 = calculateTeamMetrics(teamShift1, cabinEn, targetTypes, 7.2);
@@ -298,8 +282,7 @@
     let depletedHourShift2 = null;
 
     for (let day = 1; day <= days; day++) {
-      // === CA 1: 0h -> x ===
-      // Team Ca 1 làm việc (CHỈ HAO, KHÔNG HỒI)
+      // === CA 1: 0h -> x === (Team 1 LÀM VIỆC: CHỈ HAO)
       if (teamShift1.length > 0) {
         let minS = 100.0;
         teamShift1.forEach(op => { minS = Math.min(minS, opStamina[op.name]); });
@@ -318,15 +301,14 @@
         });
       }
 
-      // Team Ca 2 ĐANG NGHỈ trong lúc Ca 1 làm việc (HỒI STAMINA)
+      // Team 2 NGHỈ NGƠI trong lúc Ca 1 làm việc (HỒI STAMINA theo Nexus Ca 1)
       if (teamShift2.length > 0) {
         teamShift2.forEach(op => {
           opStamina[op.name] = Math.min(100.0, opStamina[op.name] + shift1Duration * nexusShift1Regen.realSpeed);
         });
       }
 
-      // === CA 2: x -> 24 ===
-      // Team Ca 2 làm việc (CHỈ HAO, KHÔNG HỒI)
+      // === CA 2: x -> 24 === (Team 2 LÀM VIỆC: CHỈ HAO)
       if (teamShift2.length > 0) {
         let minS = 100.0;
         teamShift2.forEach(op => { minS = Math.min(minS, opStamina[op.name]); });
@@ -345,7 +327,7 @@
         });
       }
 
-      // Team Ca 1 ĐANG NGHỈ trong lúc Ca 2 làm việc (HỒI STAMINA)
+      // Team 1 NGHỈ NGƠI trong lúc Ca 2 làm việc (HỒI STAMINA theo Nexus Ca 2)
       if (teamShift1.length > 0) {
         teamShift1.forEach(op => {
           opStamina[op.name] = Math.min(100.0, opStamina[op.name] + shift2Duration * nexusShift2Regen.realSpeed);
@@ -369,7 +351,6 @@
     };
   }
 
-  // Tự động tìm x tối ưu riêng cho 1 phòng
   function findOptimalXForRoom(roomKey, teamShift1, teamShift2, cabinEn, targetTypes, cycleDays, nexusShift1Regen, nexusShift2Regen) {
     let bestX = 12;
     let maxDailyOutput = -1;
@@ -396,8 +377,20 @@
     return { bestX, maxDailyOutput };
   }
 
-  // Tính tiền vốn up level theo công thức người dùng yêu cầu:
-  // 1-10: 1, 11-20: 2, 20-30: 4, 30-40: 8, 40-60: 16, 60-80: 32
+  // Tối ưu mốc đổi ca cho Control Nexus:
+  // Cân đối thời gian đổi ca của Nexus sao cho ca Nexus mạnh nhất trùng với khoảng thời gian đa số các phòng sản xuất đổi ca về nghỉ
+  function findOptimalNexusX(roomXSettings) {
+    const prodXValues = [
+      roomXSettings.mfg1 || 12,
+      roomXSettings.mfg2 || 12,
+      roomXSettings.growth || 12,
+      roomXSettings.reception || 12
+    ];
+    // Điểm giao đổi ca trung bình của các phòng sản xuất
+    const avgProdX = Math.round(prodXValues.reduce((a, b) => a + b, 0) / prodXValues.length);
+    return Math.max(8, Math.min(16, avgProdX));
+  }
+
   function calculateLevelUpCost(curLvl, targetLvl) {
     let cost = 0;
     if (curLvl < 10 && targetLvl >= 10) cost += 1;
@@ -409,7 +402,26 @@
     return cost;
   }
 
-  // Đề xuất nâng cấp nhân vật để mở thêm kỹ năng căn cứ (ROI Ranking)
+  function isClueProbabilitySkill(desc) {
+    return desc.includes('Tăng Xác Suất Manh Mối') || desc.includes('Tăng Tỷ Lệ Manh Mối');
+  }
+
+  function getShortSkillBenefit(desc) {
+    const pcts = (desc.match(/(\d+)%/g) || []).map(p => parseInt(p, 10));
+    const val = pcts.length > 0 ? pcts[0] : '';
+
+    if (desc.includes('EXP cán viên')) return `+${val}% EXP Cán Viên`;
+    if (desc.includes('EXP vũ khí')) return `+${val}% EXP Vũ Khí`;
+    if (desc.includes('cây trồng')) return `+${val}% Cây Trồng Hóa Đá`;
+    if (desc.includes('khoáng sản')) return `+${val}% Khoáng Sản Quý Hiếm`;
+    if (desc.includes('nấm')) return `+${val}% Vật Chất Nấm`;
+    if (desc.includes('thu thập manh mối')) return `+${val}% Tốc Độ Thu Thập Manh Mối`;
+    if (desc.includes('Tái Tạo Tâm Trạng') || desc.includes('Trung Tâm Kiểm Soát')) return `+${val}% Tái Tạo Tâm Trạng (Nexus)`;
+    if (desc.includes('Giảm Tâm Trạng') || desc.includes('làm chậm')) return `-${val}% Giảm Hao Tâm Trạng`;
+    return desc;
+  }
+
+  // Đề xuất nâng cấp: ĐÃ LOẠI BỎ TẤT CẢ SKILL XÁC SUẤT MANH MỐI
   function getUpgradeRecommendations(userOperators, fullSkillsData) {
     if (!userOperators || userOperators.length === 0) return [];
 
@@ -427,7 +439,6 @@
 
       const s1 = charData.slots[0];
       const s2 = charData.slots[1];
-
       const s1_max = s1.levels[s1.levels.length - 1];
       const s2_max = s2.levels[s2.levels.length - 1];
 
@@ -441,59 +452,68 @@
         if (unlocked.includes(l.skill_id)) s2_cur = l;
       }
 
-      // Case 1: Chưa mở Slot 2 (mở ở Lv 40)
+      // Case 1: Chưa mở Slot 2 (Lv < 40)
       if (!s2_cur && lvl < 40) {
-        const targetLvl = 40;
-        const cost = calculateLevelUpCost(lvl, targetLvl);
         const unlockSkill = s2.levels[0];
-        const gainDesc = `Mở khóa Slot 2 (${s2.cabin_vi}): ${unlockSkill.name_vi} (${unlockSkill.desc_vi})`;
-        const effGain = 20; // Điểm mở mới skill
-        recs.push({
-          name,
-          rarity: op.rarity || '5',
-          curLvl: lvl,
-          targetLvl,
-          cost,
-          gainDesc,
-          effGain,
-          roi: parseFloat((effGain / Math.max(1, cost)).toFixed(2))
-        });
+        if (!isClueProbabilitySkill(unlockSkill.desc_vi || '')) {
+          const targetLvl = 40;
+          const cost = calculateLevelUpCost(lvl, targetLvl);
+          const shortBenefit = getShortSkillBenefit(unlockSkill.desc_vi || '');
+          const effGain = 20;
+          recs.push({
+            name,
+            rarity: op.rarity || '5',
+            curLvl: lvl,
+            targetLvl,
+            cost,
+            cabin: s2.cabin_vi,
+            shortBenefit: `Mở mới: ${shortBenefit}`,
+            effGain,
+            roi: parseFloat((effGain / Math.max(1, cost)).toFixed(2))
+          });
+        }
       }
 
-      // Case 2: Slot 1 chưa max (nâng ở Lv 60)
+      // Case 2: Slot 1 chưa max (Lv < 60)
       if (s1_cur && s1_cur.level < s1_max.level && lvl < 60) {
-        const targetLvl = 60;
-        const cost = calculateLevelUpCost(lvl, targetLvl);
-        const gainDesc = `Nâng cấp Slot 1 (${s1.cabin_vi}) lên ${s1_max.postfix}: ${s1_max.name_vi} (${s1_max.desc_vi})`;
-        const effGain = 10; // Điểm tăng cấp
-        recs.push({
-          name,
-          rarity: op.rarity || '5',
-          curLvl: lvl,
-          targetLvl,
-          cost,
-          gainDesc,
-          effGain,
-          roi: parseFloat((effGain / Math.max(1, cost)).toFixed(2))
-        });
+        if (!isClueProbabilitySkill(s1_max.desc_vi || '')) {
+          const targetLvl = 60;
+          const cost = calculateLevelUpCost(lvl, targetLvl);
+          const shortBenefit = getShortSkillBenefit(s1_max.desc_vi || '');
+          const effGain = 10;
+          recs.push({
+            name,
+            rarity: op.rarity || '5',
+            curLvl: lvl,
+            targetLvl,
+            cost,
+            cabin: s1.cabin_vi,
+            shortBenefit: `Nâng lên: ${shortBenefit}`,
+            effGain,
+            roi: parseFloat((effGain / Math.max(1, cost)).toFixed(2))
+          });
+        }
       }
 
-      // Case 3: Slot 2 chưa max (nâng ở Lv 80)
+      // Case 3: Slot 2 chưa max (Lv < 80)
       if (s2_cur && s2_cur.level < s2_max.level && lvl < 80) {
-        const targetLvl = 80;
-        const cost = calculateLevelUpCost(lvl, targetLvl);
-        const gainDesc = `Nâng cấp Slot 2 (${s2.cabin_vi}) lên ${s2_max.postfix}: ${s2_max.name_vi} (${s2_max.desc_vi})`;
-        const effGain = 10;
-        recs.push({
-          name,
-          rarity: op.rarity || '5',
-          curLvl: lvl,
-          targetLvl,
-          cost,
-          gainDesc,
-          effGain,
-          roi: parseFloat((effGain / Math.max(1, cost)).toFixed(2))
-        });
+        if (!isClueProbabilitySkill(s2_max.desc_vi || '')) {
+          const targetLvl = 80;
+          const cost = calculateLevelUpCost(lvl, targetLvl);
+          const shortBenefit = getShortSkillBenefit(s2_max.desc_vi || '');
+          const effGain = 10;
+          recs.push({
+            name,
+            rarity: op.rarity || '5',
+            curLvl: lvl,
+            targetLvl,
+            cost,
+            cabin: s2.cabin_vi,
+            shortBenefit: `Nâng lên: ${shortBenefit}`,
+            effGain,
+            roi: parseFloat((effGain / Math.max(1, cost)).toFixed(2))
+          });
+        }
       }
     }
 
@@ -508,6 +528,7 @@
     calculateNexusRegenSpeed,
     simulateRoomCycle,
     findOptimalXForRoom,
+    findOptimalNexusX,
     getSkillEffectSummary,
     getUpgradeRecommendations
   };
