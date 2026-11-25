@@ -1,0 +1,10 @@
+# Local User Account Data (Tuyệt đối không lưu online / git)
+roster_summary.json
+endfield_player_binding.json
+endfield_user_game_data.json
+endfield_card_detail.json
+
+# Scratch & temporary files
+scratch/
+*.pyc
+__pycache__/
