@@ -242,7 +242,7 @@
       if (sk.red > 0) parts.push(`-${sk.red}% Giảm hao`);
     }
 
-    return parts.length > 0 ? parts.join(', ') : 'Nền +40% hiệu suất';
+    return parts.length > 0 ? parts.join(', ') : '';
   }
 
   function calculateTeamMetrics(teamMembers, cabinEn, targetTypes, baseBurnRate) {
@@ -525,6 +525,12 @@
           const s1 = slots[i];
           const s2 = slots[j];
           if (s1.room === s2.room) continue;
+
+          // RÀNG BUỘC CHẶT CHẼ VỀ TRUNG TÂM KIỂM SOÁT (NEXUS):
+          // Control Nexus chỉ chấp nhận cán viên có kỹ năng Tái Tạo Tâm Trạng (sk.regen > 0).
+          // Tuyệt đối không hoán đổi cán viên không có skill Nexus vào Nexus!
+          if (s1.room === 'nexus' && (!s2.op.skills['Control Nexus'] || s2.op.skills['Control Nexus'].regen <= 0)) continue;
+          if (s2.room === 'nexus' && (!s1.op.skills['Control Nexus'] || s1.op.skills['Control Nexus'].regen <= 0)) continue;
 
           const candidate = cloneAssignment(bestAssign);
           candidate[s1.room][s1.shift][s1.idx] = s2.op;

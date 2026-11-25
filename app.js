@@ -718,9 +718,15 @@
             </div>
             <span style="font-size:0.72rem; color:var(--text-muted); font-family:var(--font-mono);">Lv.${op.level || 90}</span>
           </div>
-          <div style="font-size:0.72rem; color:#fbbf24; font-family:var(--font-mono); line-height:1.3;">
-            ➔ ${effectDesc}
-          </div>
+          ${effectDesc ? `
+            <div style="font-size:0.72rem; color:#fbbf24; font-family:var(--font-mono); line-height:1.3;">
+              ➔ ${effectDesc}
+            </div>
+          ` : `
+            <div style="font-size:0.7rem; color:var(--text-muted); font-family:var(--font-mono); font-style:italic; line-height:1.3;">
+              (Không có skill phòng này)
+            </div>
+          `}
         </div>
       `;
     }).join('');
