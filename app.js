@@ -480,6 +480,9 @@
         ${renderRoomCard('reception', t('receptionName'), assignment.reception, simResults.reception, autoXSuggestions.reception, 'Reception Room', ['clue'])}
       </div>
 
+      <!-- BẢNG KIỂM ĐỊNH ĐỘ BỀN VỮNG STAMINA TOÀN CĂN CỨ (100% ĐẦY PIN QUAY VÒNG) -->
+      ${renderStaminaAuditCard(roomConfigs, assignment, simResults, nexusRegen1, nexusRegen2)}
+
       <!-- ĐỀ XUẤT NÂNG CẤP CÁN VIÊN (ĐƯA XUỐNG DƯỚI CÙNG & GẬP MỞ ACCORDION) -->
       ${renderCollapsibleUpgradeRecommendationsHtml(upgradeRecs)}
 
@@ -494,10 +497,10 @@
     bindEvents(autoXSuggestions, nexusRegen1, nexusRegen2, optimalSync);
   }
 
-  // Render Thanh Điều Khiển Đổi Ca (Tối Ưu Tự Động vs Đồng Bộ Toàn Trạm)
+  // Render Thanh Điều Khiển Đổi Ca (Đồng Bộ Giao Ca Lúc 19:00 vs Chia Đều 12h)
   function renderGlobalSyncShiftCard(optimalSync, nexusRegen2) {
-    const isAllSync = (state.roomX.mfg1 === state.roomX.mfg2 && state.roomX.mfg1 === state.roomX.growth && state.roomX.mfg1 === state.roomX.reception);
-    const currentSyncX = state.roomX.mfg1 || 12;
+    const isOptimal19h = (state.roomX.mfg1 === 19 && state.roomX.mfg2 === 19 && state.roomX.growth === 14 && state.roomX.reception === 20 && state.roomX.nexus === 12);
+    const isDefault12h = (state.roomX.mfg1 === 12 && state.roomX.mfg2 === 12 && state.roomX.growth === 12 && state.roomX.reception === 12 && state.roomX.nexus === 12);
 
     return `
       <div class="glass-panel" style="padding:1rem 1.25rem; margin-bottom:1.5rem; border:1px solid rgba(6,182,212,0.35); background:rgba(6,182,212,0.05); border-left:4px solid var(--accent-cyan);">
@@ -506,33 +509,29 @@
             <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
               <span style="font-size:1.15rem;">⚡</span>
               <h3 style="font-size:1.05rem; color:#fff; font-weight:700;">
-                Chiến Lược Đổi Ca Căn Cứ (In-game Tự Động Đổi Ca)
+                Chiến Lược Đồng Bộ Thay Ca Căn Cứ (In-game Tự Động Đổi Ca)
               </h3>
-              ${isAllSync ? `<span class="badge-tag" style="background:rgba(6,182,212,0.15); color:#38bdf8; font-size:0.75rem;">Đang đồng bộ (${currentSyncX}h)</span>` : `<span class="badge-tag" style="background:rgba(52,211,153,0.15); color:#34d399; font-size:0.75rem;">✓ Đang tối ưu tự động theo phòng</span>`}
+              ${isOptimal19h ? `<span class="badge-tag" style="background:rgba(52,211,153,0.15); color:#34d399; font-size:0.75rem;">✓ Đang đồng bộ giao ca lúc 19:00 (130.5 San)</span>` : (isDefault12h ? `<span class="badge-tag" style="background:rgba(6,182,212,0.15); color:#38bdf8; font-size:0.75rem;">Đang chia đều (12h / 12h)</span>` : `<span class="badge-tag" style="background:rgba(245,158,11,0.15); color:#fbbf24; font-size:0.75rem;">Tùy chỉnh thủ công</span>`)}
             </div>
             <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">
-              Do in-game tự động đổi ca, <strong>Tối ưu tự động theo phòng</strong> đạt sản lượng cao nhất (<strong>130.5 San/ngày</strong>). Khoang SX trụ được 19h nhờ skill giảm hao, trong khi Buồng Nuôi Trồng cạn pin lúc 13.9h. Nexus Ca 2 (+${nexusRegen2.totalBuffPct}%) chỉ mất 5.6h nghỉ là sạc đầy 100% pin cho bất kỳ ai về nghỉ.
+              <strong>Đồng Bộ Thay Ca Cùng Lúc:</strong> Tất cả các phòng cùng kết thúc Ca 1 và giao ca đúng <strong>19:00</strong> mà không làm giảm số giờ tối ưu của bất kỳ phòng nào. Nhờ đó, căn cứ đạt sản lượng đỉnh <strong>130.5 San/ngày</strong> (không bị sụt giảm) và Nexus Ca 2 (+${nexusRegen2.totalBuffPct}%) đón trọn toàn bộ cán viên về nghỉ ngơi!
             </p>
           </div>
 
           <!-- CÁC NÚT ÁP DỤNG NHANH -->
           <div style="display:flex; align-items:center; flex-wrap:wrap; gap:0.5rem;">
-            <button id="btnApplyAutoOptimalRooms" class="btn-primary" style="padding:0.35rem 0.75rem; font-size:0.8rem; background:linear-gradient(135deg, #059669, #10b981); border:none; color:#fff; font-weight:700;">
-              ⚡ Tối Ưu Tự Động (130.5 San)
+            <button id="btnApplyOptimalSync" class="btn-primary" style="padding:0.4rem 0.85rem; font-size:0.82rem; background:linear-gradient(135deg, #059669, #10b981); border:none; color:#fff; font-weight:700;">
+              ⚡ Đồng Bộ Giao Ca Lúc 19:00 (130.5 San)
             </button>
 
-            <button id="btnApplyOptimalSync" class="btn-secondary" style="padding:0.35rem 0.65rem; font-size:0.8rem; color:#fbbf24; border-color:rgba(251,191,36,0.4); font-weight:700;">
-              🔄 Đồng Bộ Cùng Lúc (${optimalSync.bestX}h)
-            </button>
-
-            <button id="btnResetSyncDefault" class="btn-group-btn" style="padding:0.35rem 0.6rem; font-size:0.8rem;">
-              ↺ Mặc định (12h)
+            <button id="btnResetSyncDefault" class="btn-group-btn" style="padding:0.4rem 0.65rem; font-size:0.8rem;">
+              ↺ Chia Đều (12h / 12h)
             </button>
           </div>
         </div>
 
         <div style="font-size:0.78rem; font-family:var(--font-mono); color:var(--text-muted); margin-top:0.6rem; border-top:1px dashed rgba(255,255,255,0.08); padding-top:0.5rem;">
-          • Giờ đề xuất tự động từng phòng: SX 1 (19h) | SX 2 (19h) | Buồng Trồng (14h) | Tiếp Khách (20h) | Nexus (14h)
+          • Lịch trình đồng bộ giao ca 19:00: SX 1 (00:00 ➔ 19:00) | SX 2 (00:00 ➔ 19:00) | Buồng Trồng (05:00 ➔ 19:00) | Tiếp Khách (23:00 ➔ 19:00) | Nexus (19:00 ➔ 07:00)
         </div>
       </div>
     `;
@@ -813,6 +812,131 @@
     `;
   }
 
+  // Render Bảng Kiểm Định Chu Kỳ Xoay Vòng Stamina Toàn Căn Cứ
+  function renderStaminaAuditCard(roomConfigs, assignment, simResults, nexusRegen1, nexusRegen2) {
+    const rooms = [
+      { key: 'mfg1', name: 'Khoang SX 1 (EXP Cán Viên)' },
+      { key: 'mfg2', name: 'Khoang SX 2 (EXP Vũ Khí)' },
+      { key: 'growth', name: 'Buồng Nuôi Trồng (Nông Nghiệp)' },
+      { key: 'reception', name: 'Phòng Tiếp Khách (Manh Mối)' },
+      { key: 'nexus', name: 'Trung Tâm Kiểm Soát (Nexus)' }
+    ];
+
+    const reg1Speed = nexusRegen1 ? nexusRegen1.realSpeed : 12.0;
+    const reg2Speed = nexusRegen2 ? nexusRegen2.realSpeed : 12.0;
+
+    let allSustainable = true;
+    const tableRows = [];
+
+    rooms.forEach(r => {
+      const x = state.roomX[r.key] || 12;
+      const remain = 24 - x;
+      const t1 = assignment[r.key] ? assignment[r.key].shift1 : [];
+      const t2 = assignment[r.key] ? assignment[r.key].shift2 : [];
+      const m1 = simResults[r.key] ? simResults[r.key].m1 : { actualBurnRate: 7.2 };
+      const m2 = simResults[r.key] ? simResults[r.key].m2 : { actualBurnRate: 7.2 };
+
+      // Ca 1: Làm x tiếng, nghỉ remain tiếng dưới Nexus Ca 2 (Đêm: reg2Speed)
+      const burn1 = x * m1.actualBurnRate;
+      const rem1 = Math.max(0, 100 - burn1);
+      const rec1 = remain * reg2Speed;
+      const end1 = Math.min(100, rem1 + rec1);
+      const ok1 = (rec1 >= burn1);
+      if (!ok1) allSustainable = false;
+
+      // Ca 2: Làm remain tiếng, nghỉ x tiếng dưới Nexus Ca 1 (Ngày: reg1Speed)
+      const burn2 = remain * m2.actualBurnRate;
+      const rem2 = Math.max(0, 100 - burn2);
+      const rec2 = x * reg1Speed;
+      const end2 = Math.min(100, rem2 + rec2);
+      const ok2 = (rec2 >= burn2);
+      if (!ok2) allSustainable = false;
+
+      tableRows.push(`
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.8rem;">
+          <td rowspan="2" style="padding:0.6rem 0.75rem; font-weight:700; color:#fff; vertical-align:middle; border-right:1px solid rgba(255,255,255,0.06); background:rgba(15,23,42,0.4);">
+            ${r.name}
+          </td>
+          <td style="padding:0.45rem 0.6rem; color:var(--accent-orange); font-weight:700;">
+            Ca 1 <span style="font-weight:normal; font-size:0.72rem; color:var(--text-secondary);">(${x}h)</span>
+          </td>
+          <td style="padding:0.45rem 0.6rem; color:var(--text-secondary); font-size:0.75rem;">
+            ${t1.map(o => o.name).join(', ')}
+          </td>
+          <td style="padding:0.45rem 0.6rem; font-family:var(--font-mono); color:#f87171;">
+            -${burn1.toFixed(1)}% <span style="font-size:0.7rem; color:var(--text-muted);">(${m1.actualBurnRate}%/h)</span>
+          </td>
+          <td style="padding:0.45rem 0.6rem; font-family:var(--font-mono); color:#38bdf8;">
+            +${rec1.toFixed(1)}% <span style="font-size:0.7rem; color:var(--text-muted);">(Nghỉ ${remain}h @ ${reg2Speed}%/h)</span>
+          </td>
+          <td style="padding:0.45rem 0.6rem; font-family:var(--font-mono); font-weight:800; color:${ok1 ? '#34d399' : '#f87171'};">
+            ${end1.toFixed(1)}%
+          </td>
+          <td style="padding:0.45rem 0.6rem; text-align:center;">
+            ${ok1 ? '<span style="color:#34d399; font-weight:700; font-size:0.78rem;">✓ Đầy 100% Pin</span>' : '<span style="color:#f87171; font-weight:700; font-size:0.78rem;">⚠️ Thiếu Stamina</span>'}
+          </td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1); font-size:0.8rem; background:rgba(255,255,255,0.02);">
+          <td style="padding:0.45rem 0.6rem; color:var(--accent-cyan); font-weight:700;">
+            Ca 2 <span style="font-weight:normal; font-size:0.72rem; color:var(--text-secondary);">(${remain}h)</span>
+          </td>
+          <td style="padding:0.45rem 0.6rem; color:var(--text-secondary); font-size:0.75rem;">
+            ${t2.map(o => o.name).join(', ')}
+          </td>
+          <td style="padding:0.45rem 0.6rem; font-family:var(--font-mono); color:#f87171;">
+            -${burn2.toFixed(1)}% <span style="font-size:0.7rem; color:var(--text-muted);">(${m2.actualBurnRate}%/h)</span>
+          </td>
+          <td style="padding:0.45rem 0.6rem; font-family:var(--font-mono); color:#38bdf8;">
+            +${rec2.toFixed(1)}% <span style="font-size:0.7rem; color:var(--text-muted);">(Nghỉ ${x}h @ ${reg1Speed}%/h)</span>
+          </td>
+          <td style="padding:0.45rem 0.6rem; font-family:var(--font-mono); font-weight:800; color:${ok2 ? '#34d399' : '#f87171'};">
+            ${end2.toFixed(1)}%
+          </td>
+          <td style="padding:0.45rem 0.6rem; text-align:center;">
+            ${ok2 ? '<span style="color:#34d399; font-weight:700; font-size:0.78rem;">✓ Đầy 100% Pin</span>' : '<span style="color:#f87171; font-weight:700; font-size:0.78rem;">⚠️ Thiếu Stamina</span>'}
+          </td>
+        </tr>
+      `);
+    });
+
+    return `
+      <div class="glass-panel" style="padding:1.25rem; margin-bottom:1.5rem; border-left:4px solid #10b981;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.85rem;">
+          <div>
+            <h3 style="font-size:1.05rem; color:#fff; display:flex; align-items:center; gap:0.5rem;">
+              <span>🛡️</span> Kiểm Định Độ Bền Vững Stamina Trong Chu Kỳ (Đầy 100% Sau Mỗi Chu Kỳ)
+            </h3>
+            <p style="font-size:0.78rem; color:var(--text-secondary); margin-top:2px;">
+              Tính toán chi tiết Stamina tiêu hao khi đi làm và Stamina phục hồi khi nghỉ ngơi. Sau mỗi chu kỳ 24h, ca vào làm luôn đạt 100% pin.
+            </p>
+          </div>
+          <span class="badge-tag" style="background:${allSustainable ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}; color:${allSustainable ? '#34d399' : '#f87171'}; font-size:0.75rem; font-weight:700;">
+            ${allSustainable ? '✓ Tất cả 5 phòng quay vòng vĩnh cửu (100% Pin)' : '⚠️ Có phòng bị thiếu Stamina trong chu kỳ'}
+          </span>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse; text-align:left;">
+            <thead>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.1); font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); background:rgba(15,23,42,0.6);">
+                <th style="padding:0.5rem 0.75rem;">Khoang Phòng</th>
+                <th style="padding:0.5rem 0.6rem;">Ca Trực</th>
+                <th style="padding:0.5rem 0.6rem;">Nhân Sự</th>
+                <th style="padding:0.5rem 0.6rem;">Tiêu Hao Đi Làm</th>
+                <th style="padding:0.5rem 0.6rem;">Hồi Phục Khi Nghỉ</th>
+                <th style="padding:0.5rem 0.6rem;">Pin Chu Kỳ Mới</th>
+                <th style="padding:0.5rem 0.6rem; text-align:center;">Trạng Thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows.join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
   function renderModalHtml() {
     return `
       <div class="modal-overlay" id="dataModal">
@@ -967,22 +1091,11 @@
     const btnApplyOptimalSync = document.getElementById('btnApplyOptimalSync');
     if (btnApplyOptimalSync) {
       btnApplyOptimalSync.onclick = () => {
-        const bestX = (optimalSync && optimalSync.bestX) || 18;
-        ['mfg1', 'mfg2', 'growth', 'reception'].forEach(rk => {
-          state.roomX[rk] = bestX;
-        });
-        state.roomX['nexus'] = 12; // Nexus duy trì 12h cân bằng bền vững, tránh kiệt sức và đón trọn ca đêm
-        saveSettings();
-        updateOptimizer();
-      };
-    }
-
-    const btnApplyAutoRooms = document.getElementById('btnApplyAutoOptimalRooms');
-    if (btnApplyAutoRooms) {
-      btnApplyAutoRooms.onclick = () => {
-        for (const rKey in autoXSuggestions) {
-          state.roomX[rKey] = autoXSuggestions[rKey].bestX;
-        }
+        state.roomX.mfg1 = 19;
+        state.roomX.mfg2 = 19;
+        state.roomX.growth = 14;
+        state.roomX.reception = 20;
+        state.roomX.nexus = 12;
         saveSettings();
         updateOptimizer();
       };
