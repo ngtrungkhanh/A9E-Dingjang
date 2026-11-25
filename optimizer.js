@@ -112,7 +112,7 @@
     return list;
   }
 
-  function evaluateOperatorForRoom(op, cabinEn, targetTypes, weights) {
+  function evaluateOperatorForRoom(op, cabinEn, targetTypes, weights, isShift2 = false) {
     const sk = op.skills[cabinEn];
     if (!sk) return 0;
 
@@ -130,7 +130,9 @@
       }
     }
 
-    const redScore = (sk.red || 0) * 1.5;
+    // Ở Ca 2 (chỉ làm việc 4-5h rồi nghỉ tới 19h), giảm hao tâm trạng hoàn toàn vô nghĩa!
+    // Do đó redScore ở Ca 2 bằng 0, chỉ ưu tiên sản lượng thuần túy (+buffScore).
+    const redScore = isShift2 ? 0 : ((sk.red || 0) * 1.5);
     return buffScore + redScore;
   }
 
@@ -167,7 +169,7 @@
       const candidates = [];
       for (const op of operators) {
         if (usedOperators.has(op.name)) continue;
-        const score = evaluateOperatorForRoom(op, cabin, targets, weights);
+        const score = evaluateOperatorForRoom(op, cabin, targets, weights, false);
         candidates.push({ op, score });
       }
 
@@ -186,10 +188,19 @@
           shift2: strongNexusOps
         };
       } else {
+        // Ca 1: Tuyển top candidates (ưu tiên cả buff sản lượng VÀ giảm hao để gánh ca dài 18-20h)
         const shift1Ops = candidates.slice(0, cap).map(c => c.op);
         shift1Ops.forEach(op => usedOperators.add(op.name));
 
+        // Ca 2: Chỉ làm việc 4-5h rồi nghỉ tới 19h, giảm hao hoàn toàn không cần thiết!
+        // Tái sắp xếp các ứng viên còn lại theo BUFF SẢN LƯỢNG THUẦN TÚY (isShift2 = true, redScore = 0)
         const remainingCandidates = candidates.slice(cap).filter(c => !usedOperators.has(c.op.name));
+        remainingCandidates.sort((a, b) => {
+          const pureBuffA = evaluateOperatorForRoom(a.op, cabin, targets, weights, true);
+          const pureBuffB = evaluateOperatorForRoom(b.op, cabin, targets, weights, true);
+          return pureBuffB - pureBuffA;
+        });
+
         const shift2Ops = remainingCandidates.slice(0, cap).map(c => c.op);
         shift2Ops.forEach(op => usedOperators.add(op.name));
 
