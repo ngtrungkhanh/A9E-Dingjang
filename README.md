@@ -7,29 +7,39 @@
 
 ---
 
-## 🌟 Tính Năng Mới Nâng Cấp (v2.0)
+## 🌟 Tính Năng Mới Nâng Cấp (v2.2)
 
-1. **Phân Ca Độc Lập Cho Từng Phòng ($x_{\text{room}}$):**
-   * Mỗi phòng có thời gian đổi ca riêng ($x \in [1, 23]$ giờ).
-   * **Nút "⚡ Gợi ý x cho phòng này":** Tự động tìm mốc giờ $x$ tối ưu riêng của phòng đó dựa trên tốc độ hao và hiệu suất của Ca 1 & Ca 2.
-   * **Nút "⚡ Tự Động Tối Ưu Phân Ca Tất Cả Phòng":** Tối ưu toàn bộ 5 phòng cùng 1 lúc chỉ trong 1 click.
-2. **Quy Tắc Nghiêm Ngặt: 1 Cán Viên Chỉ Ở Đúng 1 Phòng:**
-   * Thuật toán đảm bảo không có bất kỳ sự trùng lặp nhân sự nào giữa các phòng (MFG 1, MFG 2, Buồng Phát Triển, Tiếp Khách, Nexus).
-3. **Đa Canh Tác Buồng Phát Triển (Multi-select Toggle):**
-   * Cho phép chọn đồng thời 1, 2 hoặc cả 3 loại: *Cây Trồng Hóa Đá*, *Khoáng Sản Quý Hiếm*, *Vật Chất Nấm*.
-4. **Tách Biệt Hệ Số Ưu Tiên 7 Tài Nguyên:**
-   * EXP Cán Viên, EXP Vũ Khí, Cây Trồng Hóa Đá, Khoáng Sản Quý Hiếm, Vật Chất Nấm, Tốc Độ Manh Mối, Tái Tạo Tâm Trạng (Nexus).
-5. **Công Thức Hồi Phục Tâm Trạng Chuẩn Xác Của Control Nexus:**
-   * Mặc định khi không có ai: **12%/giờ**.
-   * Khi có cán viên trực:
-     $$\text{Tốc độ hồi Stamina toàn căn cứ} = 12\%/\text{giờ} \times \left(1 + \sum_{\text{op} \in \text{Nexus}} \text{buff}_{\text{op}}\right)$$
-   * Bảng đối chiếu thực nghiệm:
-     * 1 người +12%: $12 \times 1.12 = 13.44\%/\text{h} \to$ Ingame hiển thị **13%/h**
-     * Thêm 1 người +8% (tổng 20%): $12 \times 1.20 = 14.40\%/\text{h} \to$ Ingame hiển thị **14%/h**
-     * Thêm 1 người +16% (tổng 36%): $12 \times 1.36 = 16.32\%/\text{h} \to$ Ingame hiển thị **16%/h**
-     * Xếp đủ 5 người Tier $\gamma$ (+80%): $12 \times 1.80 = 21.60\%/\text{h} \to$ Ingame hiển thị **22%/h**!
-6. **Bảo Mật Tuyệt Đối (100% LocalStorage):**
-   * Dữ liệu tài khoản của bạn chỉ lưu trong trình duyệt cục bộ, không gửi lên bất kỳ server mạng nào.
+1. **Trung Tâm Kiểm Soát (Control Nexus - 3 Slots) Đứng Đầu Tiên:**
+   * Chuẩn hóa sức chứa: **3 cán viên Ca 1, 3 cán viên Ca 2**.
+   * Hệ số tái tạo tâm trạng không còn là tài nguyên độc lập mà là biến điều phối tự động giúp toàn bộ 4 phòng còn lại hồi stamina siêu tốc khi nghỉ ngơi.
+2. **Cơ Chế Phục Hồi Chuẩn Xác 100% Khớp Thực Nghiệm:**
+   * Cán viên **CHỈ HỒI STAMINA KHI NGHỈ NGƠI** (khi làm việc chỉ hao stamina).
+   * Tốc độ hồi: $12\%/\text{giờ} \times (1 + \sum \% \text{Nexus buff})$.
+   * Mặc định (0 buff): **12%/giờ** (đúng 5 phút / 1% Stamina).
+   * Có tích hợp **Widget Tra cứu nhanh thời gian hồi phục**: Nhập số % Stamina hiện tại để xem ngay thời gian hồi đầy.
+3. **Phân Ca Độc Lập Bằng Nút Bấm Chọn (Không Dùng Thanh Kéo):**
+   * Mỗi phòng có cụm nút bấm chọn giờ độc lập: `[-1h]`, `[8h]`, `[10h]`, `[12h]`, `[14h]`, `[16h]`, `[+1h]`.
+   * Nút **"⚡ x=..."** đề xuất riêng cho phòng đó.
+   * Nút **"⚡ Tự Động Tối Ưu Phân Ca Cho Tất Cả Phòng"** quét toán học toàn bộ trạm chỉ trong 1 click.
+4. **Hiển Thị Chi Tiết Kỹ Năng Tác Động Tới Phòng:**
+   * Từng cán viên trong phòng hiển thị rõ: Tên, Level, Số sao, và **Kỹ năng tác động** (Ví dụ: `+30% EXP Cán Viên, -18% Giảm hao`, `+16% Tái tạo tâm trạng`...).
+5. **Đề Xuất Nâng Cấp Cán Viên Tối Ưu Chi Phí (ROI Ranking):**
+   * Xếp hạng nâng cấp nhân vật để mở thêm kỹ năng căn cứ (mốc Lv 40, 60, 80).
+   * Chi phí tiền vốn tính chuẩn xác theo mốc level:
+     * 1-10: **1**
+     * 11-20: **2**
+     * 20-30: **4**
+     * 30-40: **8**
+     * 40-60: **16**
+     * 60-80: **32**
+   * Tự động tính chỉ số $\text{ROI} = \frac{\Delta \text{Hiệu Suất}}{\text{Tiền Vốn}}$ để gợi ý nâng ai hời nhất.
+6. **Chu Kỳ Mô Phỏng Nhập Số Ngày Tùy Ý:**
+   * Cho phép nhập tự do số ngày mô phỏng (ví dụ: 1 ngày, 3 ngày, 7 ngày, 14 ngày...).
+7. **Đa Canh Tác Buồng Phát Triển & 6 Sliders Hệ Số:**
+   * Chọn 1, 2 hoặc cả 3 loại: *Cây Trồng Hóa Đá*, *Khoáng Sản Quý Hiếm*, *Vật Chất Nấm*.
+   * Tách bạch 6 sliders tài nguyên (EXP cán viên, EXP vũ khí, Cây trồng, Khoáng sản, Nấm, Manh mối).
+8. **100% Offline & Bảo Mật:**
+   * Toàn bộ dữ liệu cá nhân chỉ lưu trong LocalStorage của máy bạn, không lưu online.
 
 ---
 

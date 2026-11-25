@@ -1,18 +1,20 @@
 /**
- * A9E Dingjang Logistics Optimizer Core (v2.0)
+ * A9E Dingjang Logistics Optimizer Core (v2.1)
  * Author: Antigravity
- * Tính toán phân ca độc lập từng phòng, 1 cán viên chỉ ở 1 phòng, công thức Nexus chuẩn xác
+ * Nexus 3 slots, Đề xuất nâng cấp ROI, Không dùng w_nexus
  */
 
 (function (window) {
   'use strict';
 
-  // Chuẩn hóa kỹ năng của 1 cán viên
+  // Chuẩn hóa kỹ năng của 1 cán viên theo trạng thái mở khóa thực tế
   function parseSkillsForCabin(charData, cabinEn, isUserOwned, userUnlockedSkills) {
     const slots = charData.slots || [];
     let buffs = { char_exp: 0, weapon_exp: 0, plant: 0, mineral: 0, fungus: 0, clue: 0 };
     let red = 0;
     let regen = 0;
+    let activeSkillNames = [];
+    let activeSkillDescs = [];
 
     for (const slot of slots) {
       if (slot.cabin_en !== cabinEn) continue;
@@ -20,6 +22,7 @@
       let chosenLevel = null;
       const levels = slot.levels || [];
       if (isUserOwned && userUnlockedSkills) {
+        // Chỉ nhận kỹ năng mà tài khoản ĐÃ MỞ KHÓA
         for (let i = levels.length - 1; i >= 0; i--) {
           if (userUnlockedSkills.includes(levels[i].skill_id)) {
             chosenLevel = levels[i];
@@ -33,8 +36,12 @@
       if (!chosenLevel) continue;
 
       const desc = chosenLevel.desc_vi || chosenLevel.desc_en || '';
+      const name = chosenLevel.name_vi || chosenLevel.name_en || '';
       const pcts = (desc.match(/(\d+)%/g) || []).map(p => parseInt(p, 10));
       const val = pcts.length > 0 ? pcts[0] : 0;
+
+      activeSkillNames.push(name);
+      activeSkillDescs.push(desc);
 
       if (cabinEn === 'Control Nexus' || desc.includes('Tái Tạo Tâm Trạng')) {
         regen = Math.max(regen, val);
@@ -52,10 +59,10 @@
       }
     }
 
-    return { buffs, red, regen };
+    return { buffs, red, regen, activeSkillNames, activeSkillDescs };
   }
 
-  // Lọc và parse toàn bộ danh sách cán viên
+  // Parse toàn bộ danh sách cán viên
   function parseAllOperators(fullSkillsData, userRosterData, useUserRoster) {
     const list = [];
     const userOpMap = {};
@@ -67,7 +74,7 @@
     }
 
     for (const char of fullSkillsData) {
-      if (!char.slots || char.slots.length === 0) continue; // Bỏ nhân vật không có kỹ năng
+      if (!char.slots || char.slots.length === 0) continue;
 
       const name = char.name;
       const isOwned = Boolean(userOpMap[name]);
@@ -84,12 +91,14 @@
         name: name,
         rarity: opDetail ? opDetail.rarity : (char.rarity || '5'),
         level: opDetail ? opDetail.level : 90,
+        evolvePhase: opDetail ? opDetail.evolvePhase : 4,
         weapon: opDetail ? opDetail.weapon : null,
+        unlockedSkillIds: unlockedSkills || [],
         skills: {
+          'Control Nexus': parseSkillsForCabin(char, 'Control Nexus', useUserRoster, unlockedSkills),
           'MFG Cabin': parseSkillsForCabin(char, 'MFG Cabin', useUserRoster, unlockedSkills),
           'Growth Chamber': parseSkillsForCabin(char, 'Growth Chamber', useUserRoster, unlockedSkills),
-          'Reception Room': parseSkillsForCabin(char, 'Reception Room', useUserRoster, unlockedSkills),
-          'Control Nexus': parseSkillsForCabin(char, 'Control Nexus', useUserRoster, unlockedSkills)
+          'Reception Room': parseSkillsForCabin(char, 'Reception Room', useUserRoster, unlockedSkills)
         }
       });
     }
@@ -97,13 +106,14 @@
     return list;
   }
 
-  // Đánh giá điểm phù hợp của cán viên đối với phòng
+  // Đánh giá điểm cán viên cho 1 phòng
   function evaluateOperatorForRoom(op, cabinEn, targetTypes, weights) {
     const sk = op.skills[cabinEn];
     if (!sk) return 0;
 
+    // Tái tạo tâm trạng Nexus được đánh giá theo giá trị phục hồi
     if (cabinEn === 'Control Nexus') {
-      return (sk.regen || 0) * (weights.nexus || 1.0);
+      return (sk.regen || 0) * 1.5;
     }
 
     let buffScore = 0;
@@ -120,37 +130,38 @@
     return buffScore + redScore;
   }
 
-  // Phân bổ cán viên vào 5 phòng: 1 CÁN VIÊN CHỈ ĐƯỢC Ở ĐÚNG 1 PHÒNG!
+  // Phân bổ cán viên vào 5 phòng: 1 CÁN VIÊN CHỈ ĐƯỢC Ở ĐÚNG 1 PHÒNG
+  // Thứ tự: Control Nexus -> MFG 1 -> MFG 2 -> Growth -> Reception
   function assignDistinctRooms(operators, roomConfigs, weights) {
-    const roomKeys = ['mfg1', 'mfg2', 'growth', 'reception', 'nexus'];
+    // Thứ tự phòng ưu tiên: Nexus luôn được phân bổ hợp lý, tiếp theo là các phòng sản xuất theo trọng số
+    const prodRooms = ['mfg1', 'mfg2', 'growth', 'reception'];
+    prodRooms.sort((a, b) => {
+      const getW = (r) => {
+        if (r === 'mfg1') return weights.char_exp || 1.0;
+        if (r === 'mfg2') return weights.weapon_exp || 1.0;
+        if (r === 'growth') return Math.max(...(roomConfigs.growth.types.map(t => weights[t] || 1.0)), 1.0);
+        if (r === 'reception') return weights.clue || 1.0;
+        return 1.0;
+      };
+      return getW(b) - getW(a);
+    });
 
-    // Sắp xếp thứ tự ưu tiên của phòng theo trọng số tài nguyên cao nhất của phòng đó
-    const roomPriorities = {
-      mfg1: weights.char_exp || 1.0,
-      mfg2: weights.weapon_exp || 1.0,
-      growth: Math.max(...(roomConfigs.growth.types.map(t => weights[t] || 1.0)), 1.0),
-      reception: weights.clue || 1.0,
-      nexus: weights.nexus || 1.0
-    };
-
-    roomKeys.sort((a, b) => roomPriorities[b] - roomPriorities[a]);
-
+    const roomOrder = ['nexus', ...prodRooms];
     const usedOperators = new Set();
     const assignment = {
+      nexus: { shift1: [], shift2: [] },
       mfg1: { shift1: [], shift2: [] },
       mfg2: { shift1: [], shift2: [] },
       growth: { shift1: [], shift2: [] },
-      reception: { shift1: [], shift2: [] },
-      nexus: { shift1: [], shift2: [] }
+      reception: { shift1: [], shift2: [] }
     };
 
-    for (const rKey of roomKeys) {
+    for (const rKey of roomOrder) {
       const cfg = roomConfigs[rKey];
       const cabin = cfg.cabin;
       const targets = cfg.types;
       const cap = cfg.cap;
 
-      // Tìm ứng viên chưa được gán vào bất kỳ phòng nào
       const candidates = [];
       for (const op of operators) {
         if (usedOperators.has(op.name)) continue;
@@ -158,14 +169,13 @@
         candidates.push({ op, score });
       }
 
-      // Sắp xếp ứng viên điểm cao nhất
       candidates.sort((a, b) => b.score - a.score);
 
-      // Tuyển chọn Ca 1 (tối đa cap)
+      // Ca 1 (tối đa cap)
       const shift1Ops = candidates.slice(0, cap).map(c => c.op);
       shift1Ops.forEach(op => usedOperators.add(op.name));
 
-      // Tuyển chọn Ca 2 từ các ứng viên còn lại
+      // Ca 2 (tối đa cap)
       const remainingCandidates = candidates.slice(cap).filter(c => !usedOperators.has(c.op.name));
       const shift2Ops = remainingCandidates.slice(0, cap).map(c => c.op);
       shift2Ops.forEach(op => usedOperators.add(op.name));
@@ -179,7 +189,37 @@
     return assignment;
   }
 
-  // Tính thông số hiệu suất và tốc độ hao của một team
+  // Lấy tóm tắt hiệu ứng kỹ năng của cán viên cho phòng cụ thể
+  function getSkillEffectSummary(op, cabinEn, targetTypes) {
+    const sk = op.skills[cabinEn];
+    if (!sk) return 'Không có hiệu ứng đặc biệt';
+
+    const parts = [];
+    if (cabinEn === 'Control Nexus') {
+      if (sk.regen > 0) parts.push(`+${sk.regen}% Tái tạo tâm trạng`);
+    } else {
+      if (sk.buffs) {
+        for (const t of targetTypes) {
+          if (sk.buffs[t]) {
+            const labelMap = {
+              char_exp: 'EXP Cán Viên',
+              weapon_exp: 'EXP Vũ Khí',
+              plant: 'Cây Trồng',
+              mineral: 'Khoáng Sản',
+              fungus: 'Nấm',
+              clue: 'Thu Thập Manh Mối'
+            };
+            parts.push(`+${sk.buffs[t]}% ${labelMap[t] || t}`);
+          }
+        }
+      }
+      if (sk.red > 0) parts.push(`-${sk.red}% Giảm hao`);
+    }
+
+    return parts.length > 0 ? parts.join(', ') : 'Nền +40% hiệu suất';
+  }
+
+  // Tính thông số hiệu suất và tốc độ hao của team
   function calculateTeamMetrics(teamMembers, cabinEn, targetTypes, baseBurnRate) {
     const n = teamMembers.length;
     const baseEff = 1.0 + 0.4 * n;
@@ -223,8 +263,7 @@
     };
   }
 
-  // Tính tốc độ hồi phục Stamina toàn căn cứ từ Control Nexus
-  // Công thức chuẩn xác: Base 12%/h * (1 + sum(buff) / 100)
+  // Tốc độ hồi Stamina Nexus: 12%/h * (1 + sum(buff)/100)
   function calculateNexusRegenSpeed(nexusMembers) {
     let totalBuffPct = 0;
     for (const op of nexusMembers) {
@@ -234,7 +273,7 @@
       }
     }
     const realSpeed = 12.0 * (1.0 + totalBuffPct / 100.0);
-    const ingameSpeed = Math.round(realSpeed); // Ingame hiển thị làm tròn số nguyên
+    const ingameSpeed = Math.round(realSpeed);
     return {
       totalBuffPct,
       realSpeed: parseFloat(realSpeed.toFixed(2)),
@@ -242,9 +281,9 @@
     };
   }
 
-  // Mô phỏng chu kỳ độc lập cho 1 phòng cụ thể với giá trị x của phòng đó
+  // Mô phỏng chu kỳ độc lập cho 1 phòng (CHỈ HỒI STAMINA KHI NGHỈ)
   function simulateRoomCycle(roomKey, teamShift1, teamShift2, cabinEn, targetTypes, x, cycleDays, nexusShift1Regen, nexusShift2Regen) {
-    const days = cycleDays || 1;
+    const days = Math.max(1, cycleDays || 1);
     const m1 = calculateTeamMetrics(teamShift1, cabinEn, targetTypes, 7.2);
     const m2 = calculateTeamMetrics(teamShift2, cabinEn, targetTypes, 7.2);
 
@@ -259,7 +298,8 @@
     let depletedHourShift2 = null;
 
     for (let day = 1; day <= days; day++) {
-      // === CA 1: 0 -> x ===
+      // === CA 1: 0h -> x ===
+      // Team Ca 1 làm việc (CHỈ HAO, KHÔNG HỒI)
       if (teamShift1.length > 0) {
         let minS = 100.0;
         teamShift1.forEach(op => { minS = Math.min(minS, opStamina[op.name]); });
@@ -273,13 +313,12 @@
 
         totalCycleOutput += actualWorkTime * (m1.totalEffPct / 100.0);
 
-        // Hao stamina Ca 1
         teamShift1.forEach(op => {
           opStamina[op.name] = Math.max(0, opStamina[op.name] - shift1Duration * m1.actualBurnRate);
         });
       }
 
-      // Ca 2 nghỉ trong lúc Ca 1 làm việc (x giờ)
+      // Team Ca 2 ĐANG NGHỈ trong lúc Ca 1 làm việc (HỒI STAMINA)
       if (teamShift2.length > 0) {
         teamShift2.forEach(op => {
           opStamina[op.name] = Math.min(100.0, opStamina[op.name] + shift1Duration * nexusShift1Regen.realSpeed);
@@ -287,6 +326,7 @@
       }
 
       // === CA 2: x -> 24 ===
+      // Team Ca 2 làm việc (CHỈ HAO, KHÔNG HỒI)
       if (teamShift2.length > 0) {
         let minS = 100.0;
         teamShift2.forEach(op => { minS = Math.min(minS, opStamina[op.name]); });
@@ -300,13 +340,12 @@
 
         totalCycleOutput += actualWorkTime * (m2.totalEffPct / 100.0);
 
-        // Hao stamina Ca 2
         teamShift2.forEach(op => {
           opStamina[op.name] = Math.max(0, opStamina[op.name] - shift2Duration * m2.actualBurnRate);
         });
       }
 
-      // Ca 1 nghỉ trong lúc Ca 2 làm việc (24 - x giờ)
+      // Team Ca 1 ĐANG NGHỈ trong lúc Ca 2 làm việc (HỒI STAMINA)
       if (teamShift1.length > 0) {
         teamShift1.forEach(op => {
           opStamina[op.name] = Math.min(100.0, opStamina[op.name] + shift2Duration * nexusShift2Regen.realSpeed);
@@ -330,11 +369,10 @@
     };
   }
 
-  // Tự động tìm x tối ưu riêng cho 1 phòng cụ thể
+  // Tự động tìm x tối ưu riêng cho 1 phòng
   function findOptimalXForRoom(roomKey, teamShift1, teamShift2, cabinEn, targetTypes, cycleDays, nexusShift1Regen, nexusShift2Regen) {
     let bestX = 12;
     let maxDailyOutput = -1;
-    const comparisons = [];
 
     for (let testX = 1; testX <= 23; testX++) {
       const sim = simulateRoomCycle(
@@ -349,23 +387,118 @@
         nexusShift2Regen
       );
 
-      comparisons.push({
-        x: testX,
-        dailyOutput: sim.dailyOutputAvg,
-        dailyEff: sim.dailyAvgEfficiency
-      });
-
       if (sim.dailyOutputAvg > maxDailyOutput) {
         maxDailyOutput = sim.dailyOutputAvg;
         bestX = testX;
       }
     }
 
-    return {
-      bestX,
-      maxDailyOutput,
-      comparisons
-    };
+    return { bestX, maxDailyOutput };
+  }
+
+  // Tính tiền vốn up level theo công thức người dùng yêu cầu:
+  // 1-10: 1, 11-20: 2, 20-30: 4, 30-40: 8, 40-60: 16, 60-80: 32
+  function calculateLevelUpCost(curLvl, targetLvl) {
+    let cost = 0;
+    if (curLvl < 10 && targetLvl >= 10) cost += 1;
+    if (curLvl < 20 && targetLvl >= 20) cost += 2;
+    if (curLvl < 30 && targetLvl >= 30) cost += 4;
+    if (curLvl < 40 && targetLvl >= 40) cost += 8;
+    if (curLvl < 60 && targetLvl >= 60) cost += 16;
+    if (curLvl < 80 && targetLvl >= 80) cost += 32;
+    return cost;
+  }
+
+  // Đề xuất nâng cấp nhân vật để mở thêm kỹ năng căn cứ (ROI Ranking)
+  function getUpgradeRecommendations(userOperators, fullSkillsData) {
+    if (!userOperators || userOperators.length === 0) return [];
+
+    const fullMap = {};
+    fullSkillsData.forEach(c => { fullMap[c.name] = c; });
+
+    const recs = [];
+
+    for (const op of userOperators) {
+      const name = op.name;
+      const lvl = op.level || 1;
+      const unlocked = op.spaceshipSkills || [];
+      const charData = fullMap[name];
+      if (!charData || !charData.slots || charData.slots.length < 2) continue;
+
+      const s1 = charData.slots[0];
+      const s2 = charData.slots[1];
+
+      const s1_max = s1.levels[s1.levels.length - 1];
+      const s2_max = s2.levels[s2.levels.length - 1];
+
+      let s1_cur = null;
+      for (const l of s1.levels) {
+        if (unlocked.includes(l.skill_id)) s1_cur = l;
+      }
+
+      let s2_cur = null;
+      for (const l of s2.levels) {
+        if (unlocked.includes(l.skill_id)) s2_cur = l;
+      }
+
+      // Case 1: Chưa mở Slot 2 (mở ở Lv 40)
+      if (!s2_cur && lvl < 40) {
+        const targetLvl = 40;
+        const cost = calculateLevelUpCost(lvl, targetLvl);
+        const unlockSkill = s2.levels[0];
+        const gainDesc = `Mở khóa Slot 2 (${s2.cabin_vi}): ${unlockSkill.name_vi} (${unlockSkill.desc_vi})`;
+        const effGain = 20; // Điểm mở mới skill
+        recs.push({
+          name,
+          rarity: op.rarity || '5',
+          curLvl: lvl,
+          targetLvl,
+          cost,
+          gainDesc,
+          effGain,
+          roi: parseFloat((effGain / Math.max(1, cost)).toFixed(2))
+        });
+      }
+
+      // Case 2: Slot 1 chưa max (nâng ở Lv 60)
+      if (s1_cur && s1_cur.level < s1_max.level && lvl < 60) {
+        const targetLvl = 60;
+        const cost = calculateLevelUpCost(lvl, targetLvl);
+        const gainDesc = `Nâng cấp Slot 1 (${s1.cabin_vi}) lên ${s1_max.postfix}: ${s1_max.name_vi} (${s1_max.desc_vi})`;
+        const effGain = 10; // Điểm tăng cấp
+        recs.push({
+          name,
+          rarity: op.rarity || '5',
+          curLvl: lvl,
+          targetLvl,
+          cost,
+          gainDesc,
+          effGain,
+          roi: parseFloat((effGain / Math.max(1, cost)).toFixed(2))
+        });
+      }
+
+      // Case 3: Slot 2 chưa max (nâng ở Lv 80)
+      if (s2_cur && s2_cur.level < s2_max.level && lvl < 80) {
+        const targetLvl = 80;
+        const cost = calculateLevelUpCost(lvl, targetLvl);
+        const gainDesc = `Nâng cấp Slot 2 (${s2.cabin_vi}) lên ${s2_max.postfix}: ${s2_max.name_vi} (${s2_max.desc_vi})`;
+        const effGain = 10;
+        recs.push({
+          name,
+          rarity: op.rarity || '5',
+          curLvl: lvl,
+          targetLvl,
+          cost,
+          gainDesc,
+          effGain,
+          roi: parseFloat((effGain / Math.max(1, cost)).toFixed(2))
+        });
+      }
+    }
+
+    recs.sort((a, b) => b.roi - a.roi);
+    return recs;
   }
 
   window.A9EOptimizer = {
@@ -374,7 +507,9 @@
     calculateTeamMetrics,
     calculateNexusRegenSpeed,
     simulateRoomCycle,
-    findOptimalXForRoom
+    findOptimalXForRoom,
+    getSkillEffectSummary,
+    getUpgradeRecommendations
   };
 
 })(window);
