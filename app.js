@@ -543,6 +543,12 @@
     const x = simRes.x;
     const remain = 24 - x;
 
+    // Neo mốc giao ca tại 19:00: Tất cả các phòng cùng đổi Ca 1 sang Ca 2 lúc 19:00
+    const syncEndHour = 19;
+    const startHour = (syncEndHour - x + 24) % 24;
+    const startStr = (startHour < 10 ? '0' : '') + startHour + ':00';
+    const endStr = (syncEndHour < 10 ? '0' : '') + syncEndHour + ':00';
+
     return `
       <div class="glass-panel" style="padding:1.25rem; margin-bottom:1.5rem;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:0.75rem; margin-bottom:1rem;">
@@ -574,13 +580,13 @@
         </div>
 
         <div style="font-size:0.78rem; font-family:var(--font-mono); color:var(--text-muted); margin-bottom:0.75rem;">
-          • Ca 1: 00:00 ➔ ${x}:00 (${x}h làm việc) | Ca 2: ${x}:00 ➔ 24:00 (${remain}h làm việc)
+          • Lịch trình neo mốc 19:00: Ca 1 (${startStr} ➔ ${endStr} - ${x}h) | Ca 2 (${endStr} ➔ ${startStr} - ${remain}h)
         </div>
 
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:1rem;">
           <div style="background:rgba(245, 158, 11, 0.05); border:1px solid rgba(245, 158, 11, 0.2); border-radius:8px; padding:0.85rem;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-              <span style="font-size:0.82rem; font-weight:700; color:var(--accent-orange);">☀️ ${t('shift1Label', { x })}</span>
+              <span style="font-size:0.82rem; font-weight:700; color:var(--accent-orange);">☀️ Ca 1 (${startStr} ➔ ${endStr} - ${x}h)</span>
               <span class="room-eff-badge">${simRes.m1.totalEffPct}% Eff</span>
             </div>
             <div class="operator-chips">
@@ -594,7 +600,7 @@
 
           <div style="background:rgba(6, 182, 212, 0.05); border:1px solid rgba(6, 182, 212, 0.2); border-radius:8px; padding:0.85rem;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-              <span style="font-size:0.82rem; font-weight:700; color:var(--accent-cyan);">🌙 ${t('shift2Label', { x, remain })}</span>
+              <span style="font-size:0.82rem; font-weight:700; color:var(--accent-cyan);">🌙 Ca 2 (${endStr} ➔ ${startStr} - ${remain}h)</span>
               <span class="room-eff-badge" style="background:rgba(6, 182, 212, 0.15); color:#38bdf8; border-color:rgba(6, 182, 212, 0.3);">${simRes.m2.totalEffPct}% Eff</span>
             </div>
             <div class="operator-chips">
