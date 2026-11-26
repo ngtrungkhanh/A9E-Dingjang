@@ -343,9 +343,17 @@
 
         totalCycleOutput += actualWorkTime * (m1.totalEffPct / 100.0);
 
-        teamShift1.forEach(op => {
-          opStamina[op.name] = Math.max(0, opStamina[op.name] - shift1Duration * m1.actualBurnRate);
-        });
+        if (actualWorkTime < shift1Duration) {
+          // Cán viên cạn Stamina giữa ca: nghỉ ngay lập tức trong thời gian còn lại của Ca 1
+          const earlyRestHours = shift1Duration - actualWorkTime;
+          teamShift1.forEach(op => {
+            opStamina[op.name] = Math.min(100.0, earlyRestHours * speed1);
+          });
+        } else {
+          teamShift1.forEach(op => {
+            opStamina[op.name] = Math.max(0, opStamina[op.name] - shift1Duration * m1.actualBurnRate);
+          });
+        }
       }
 
       // Team 2 NGHỈ NGƠI trong lúc Ca 1 làm việc (HỒI STAMINA theo Nexus Ca 1)
@@ -369,9 +377,17 @@
 
         totalCycleOutput += actualWorkTime * (m2.totalEffPct / 100.0);
 
-        teamShift2.forEach(op => {
-          opStamina[op.name] = Math.max(0, opStamina[op.name] - shift2Duration * m2.actualBurnRate);
-        });
+        if (actualWorkTime < shift2Duration) {
+          // Cán viên cạn Stamina giữa ca: nghỉ ngay lập tức trong thời gian còn lại của Ca 2
+          const earlyRestHours = shift2Duration - actualWorkTime;
+          teamShift2.forEach(op => {
+            opStamina[op.name] = Math.min(100.0, earlyRestHours * speed2);
+          });
+        } else {
+          teamShift2.forEach(op => {
+            opStamina[op.name] = Math.max(0, opStamina[op.name] - shift2Duration * m2.actualBurnRate);
+          });
+        }
       }
 
       // Team 1 NGHỈ NGƠI trong lúc Ca 2 làm việc (HỒI STAMINA theo Nexus Ca 2)

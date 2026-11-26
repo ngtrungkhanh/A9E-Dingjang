@@ -73,17 +73,20 @@ Căn cứ dựa trên tỷ lệ tiêu hao ải game tiêu chuẩn (80 Sanity / l
    Số chu kỳ trụ vững trước khi gục giữa ca:
    $$k_{\text{safe}} = \left\lfloor \frac{100 - \text{Burned}}{L} \right\rfloor + 1$$
    Sau $k_{\text{safe}}$ chu kỳ, cán viên sẽ cạn sạch pin giữa ca làm việc, dẫn đến hiệu suất rơi về 0% và làm sụt giảm nghiêm trọng sản lượng trung bình.
-6. **Cơ chế Đổi Ca Tự Động Trong Game & Phân Tích Cân Bằng Động (Dynamic Limit-Cycle):**
-   * **Cơ chế đổi ca theo giờ ấn định (Clock Schedule):** Game Endfield thực hiện đổi ca tự động theo mốc giờ cố định trên đồng hồ (ví dụ đúng 19:00), **hoàn toàn KHÔNG tự động đổi ca khi cán viên chạm 0 Stamina**.
-   * **Hình phạt khi cạn kiệt Stamina giữa ca:** Khi cán viên chạm 0 Stamina, họ rơi vào trạng thái *Kiệt Sức (Exhausted / Overload)*. Họ **KHÔNG ĐƯỢC** đưa về buồng nghỉ ngay lập tức, mà phải **tiếp tục đứng trực trong buồng sản xuất với 0% hiệu suất** cho đến khi hết giờ ca theo lịch. Họ chỉ bắt đầu hồi phục khi ca làm chính thức kết thúc.
-   * **Không có hiện tượng "tự điều hòa nghỉ bù để hồi nhiều hơn":** Cán viên bị gục giữa ca không được nghỉ thêm giờ nào; trái lại, buồng sản xuất bị tê liệt suốt số giờ còn lại của ca trực, kéo sụt giảm từ 30% đến 40% sản lượng trung bình ngày.
-   * **Chứng minh toán học về giới hạn trên của giờ làm việc trung bình:**
-     Trong bất kỳ hệ thống quay vòng lâu dài nào, tổng Stamina tiêu hao không thể vượt quá tổng Stamina hồi phục:
-     $$T_{\text{work}} \times \text{BurnRate}_1 \le (24 - T_{\text{work}}) \times \text{RegenRate}_2$$
-     $$\implies T_{\text{work}} \le \frac{24 \times \text{RegenRate}_2}{\text{BurnRate}_1 + \text{RegenRate}_2}$$
-     Với Khoang SX 1 ($\text{BurnRate}_1 = 4.608\%/\text{h}, \text{RegenRate}_2 = 17.76\%/\text{h}$):
-     $$T_{\text{work}} \le \frac{24 \times 17.76}{4.608 + 17.76} = 19.056\text{ giờ}$$
-     Dù có dùng thuật toán hay can thiệp con lắc nào, Ca 1 cũng **không thể làm việc quá 19.056 giờ/ngày** trên trung bình. Do đó, $x = 19\text{h}$ là điểm cực đại tối ưu toàn cục bền vững: vừa tối đa hóa sản lượng, vừa đảm bảo 100% pin hồi phục mỗi chu kỳ.
+6. **Cơ chế Khi Cán Viên Cạn 0 Stamina Giữa Ca & Phân Tích Chu Kỳ Dao Động (Oscillating Limit-Cycle):**
+   * **Quy tắc khi chạm 0 Stamina:** Khi cán viên cạn sạch 0 Stamina giữa ca, họ **nghỉ ngơi ngay lập tức** và bắt đầu hồi phục Stamina từ thời điểm đó (không phải chờ đến hết ca).
+   * **Hiện tượng dao động con lắc 2 ngày (2-Day Limit Cycle):**
+     * *Ngày 1 (Lẻ - Bắt đầu 100% pin):* Ca 1 làm việc 21h (hao 96.8%), nghỉ 3h (sạc 53.3%) $\implies$ Kết thúc ngày còn **56.5% pin**. Sản lượng Ngày 1 đạt đỉnh: **99.0**.
+     * *Ngày 2 (Chẵn - Bắt đầu 56.5% pin):* Ca 1 chỉ đủ pin làm việc trong $56.5 / 4.608 = \mathbf{12.26\text{ giờ}}$! Khi chạm 0 pin, Ca 1 **nghỉ ngay lập tức**.
+       * Ca 1 nghỉ từ 12.26h đến 21.00h (8.74h) và tiếp tục nghỉ trong Ca 2 (3.0h) $\implies$ Tổng giờ nghỉ là 11.74h.
+       * Vì nghỉ dài, Ca 1 sạc đầy **100% pin** cho Ngày 3!
+       * **NHƯNG:** Trong 8.74h Ca 1 nghỉ sớm (khi Ca 2 chưa đến giờ vào ca), buồng sản xuất bị bỏ trống $\implies$ Sản lượng Ngày 2 tụt dốc thảm hại còn **62.5**!
+     * *Sản lượng trung bình:* $(\text{Ngày 1: } 99.0 + \text{Ngày 2: } 62.5) / 2 = \mathbf{80.75\text{ San/ngày}}$ (Tụt mất **17.7%** so với mốc 19h cố định đạt **98.12\text{ San/ngày}**)!
+   * **Nguyên nhân toán học cốt lõi (Lãng phí do Cắt ngọn Stamina 100%):**
+     * Trong Ngày 2, Ca 1 nghỉ 11.74h. Với tốc độ hồi pin $16-17\%/\text{h}$, Ca 1 chỉ mất **6.1h là đã sạc đầy 100% pin**.
+     * Suốt $11.74 - 6.1 = \mathbf{5.64\text{ giờ còn lại}}$, Ca 1 ngồi chơi xơi nước ở mức 100% pin (Stamina bị cắt ngọn kịch trần ở 100%, không thể tích lũy thêm).
+     * Số giờ làm việc trung bình của Ca 1 bị kéo tụt từ $19.0\text{h/ngày}$ xuống chỉ còn $\frac{21 + 12.26}{2} = \mathbf{16.63\text{h/ngày}}$!
+     * Do đó, chu kỳ dao động quá tải vừa làm lãng phí tiềm năng sạc pin (tràn bình), vừa bỏ trống buồng sản xuất, cho sản lượng thấp hơn đáng kể so với việc giữ **$x = 19\text{h}$ bền vững 100% pin mỗi ngày**.
 7. **Ràng buộc an toàn trong Thuật toán Đề xuất (`findOptimalXForRoom`):**
    * Thuật toán chỉ đề xuất các giá trị $x$ thỏa mãn đồng thời:
      * $x \times \text{BurnRate}_1 \le 100$ và $(24 - x) \times \text{RegenRate}_2 \ge x \times \text{BurnRate}_1$ (Ca 1 bền vững 100% pin)
