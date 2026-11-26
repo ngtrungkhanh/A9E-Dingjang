@@ -73,8 +73,22 @@ Căn cứ dựa trên tỷ lệ tiêu hao ải game tiêu chuẩn (80 Sanity / l
    Số chu kỳ trụ vững trước khi gục giữa ca:
    $$k_{\text{safe}} = \left\lfloor \frac{100 - \text{Burned}}{L} \right\rfloor + 1$$
    Sau $k_{\text{safe}}$ chu kỳ, cán viên sẽ cạn sạch pin giữa ca làm việc, dẫn đến hiệu suất rơi về 0% và làm sụt giảm nghiêm trọng sản lượng trung bình.
-6. **Chứng minh vì sao chu kỳ an toàn 100% cho sản lượng tối đa:**
-   Vì tổng Stamina tiêu hao không thể vượt quá tổng Stamina hồi phục trong dài hạn, số giờ làm việc trung bình của Ca 1 bị chặn trên bởi $\frac{24 \times \text{Regen}}{\text{Burn} + \text{Regen}}$. Việc chạy quá tải rồi nghỉ bù không thể tạo ra nhiều giờ làm hơn mức này, ngược lại còn làm phát sinh thời gian chết khi gục giữa ca và phá vỡ lịch trình tự động 24h của game.
+6. **Cơ chế Đổi Ca Tự Động Trong Game & Phân Tích Cân Bằng Động (Dynamic Limit-Cycle):**
+   * **Cơ chế đổi ca theo giờ ấn định (Clock Schedule):** Game Endfield thực hiện đổi ca tự động theo mốc giờ cố định trên đồng hồ (ví dụ đúng 19:00), **hoàn toàn KHÔNG tự động đổi ca khi cán viên chạm 0 Stamina**.
+   * **Hình phạt khi cạn kiệt Stamina giữa ca:** Khi cán viên chạm 0 Stamina, họ rơi vào trạng thái *Kiệt Sức (Exhausted / Overload)*. Họ **KHÔNG ĐƯỢC** đưa về buồng nghỉ ngay lập tức, mà phải **tiếp tục đứng trực trong buồng sản xuất với 0% hiệu suất** cho đến khi hết giờ ca theo lịch. Họ chỉ bắt đầu hồi phục khi ca làm chính thức kết thúc.
+   * **Không có hiện tượng "tự điều hòa nghỉ bù để hồi nhiều hơn":** Cán viên bị gục giữa ca không được nghỉ thêm giờ nào; trái lại, buồng sản xuất bị tê liệt suốt số giờ còn lại của ca trực, kéo sụt giảm từ 30% đến 40% sản lượng trung bình ngày.
+   * **Chứng minh toán học về giới hạn trên của giờ làm việc trung bình:**
+     Trong bất kỳ hệ thống quay vòng lâu dài nào, tổng Stamina tiêu hao không thể vượt quá tổng Stamina hồi phục:
+     $$T_{\text{work}} \times \text{BurnRate}_1 \le (24 - T_{\text{work}}) \times \text{RegenRate}_2$$
+     $$\implies T_{\text{work}} \le \frac{24 \times \text{RegenRate}_2}{\text{BurnRate}_1 + \text{RegenRate}_2}$$
+     Với Khoang SX 1 ($\text{BurnRate}_1 = 4.608\%/\text{h}, \text{RegenRate}_2 = 17.76\%/\text{h}$):
+     $$T_{\text{work}} \le \frac{24 \times 17.76}{4.608 + 17.76} = 19.056\text{ giờ}$$
+     Dù có dùng thuật toán hay can thiệp con lắc nào, Ca 1 cũng **không thể làm việc quá 19.056 giờ/ngày** trên trung bình. Do đó, $x = 19\text{h}$ là điểm cực đại tối ưu toàn cục bền vững: vừa tối đa hóa sản lượng, vừa đảm bảo 100% pin hồi phục mỗi chu kỳ.
+7. **Ràng buộc an toàn trong Thuật toán Đề xuất (`findOptimalXForRoom`):**
+   * Thuật toán chỉ đề xuất các giá trị $x$ thỏa mãn đồng thời:
+     * $x \times \text{BurnRate}_1 \le 100$ và $(24 - x) \times \text{RegenRate}_2 \ge x \times \text{BurnRate}_1$ (Ca 1 bền vững 100% pin)
+     * $(24 - x) \times \text{BurnRate}_2 \le 100$ và $x \times \text{RegenRate}_1 \ge (24 - x) \times \text{BurnRate}_2$ (Ca 2 bền vững 100% pin)
+   * Nhờ đó, nút `⚡ Đề xuất` luôn đồng nhất với huy hiệu `✓ Chu kỳ xoay vòng an toàn 100% Stamina`.
 
 ### 3.3. Đồng Bộ Mốc Giao Ca Căn Cứ (`syncHour`)
 * Cho phép người dùng nhập tự do mốc giao ca $0 \le \text{syncHour} \le 23$ (mặc định 19:00).

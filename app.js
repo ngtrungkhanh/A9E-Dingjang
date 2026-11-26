@@ -1157,11 +1157,11 @@
           let val = parseInt(inp.value, 10);
           if (!isNaN(val)) state.syncHour = Math.max(0, Math.min(23, val));
         }
-        state.roomX.mfg1 = 19;
-        state.roomX.mfg2 = 19;
-        state.roomX.growth = 14;
-        state.roomX.reception = 20;
-        state.roomX.nexus = 12;
+        for (const rKey in autoXSuggestions) {
+          if (autoXSuggestions[rKey] && autoXSuggestions[rKey].bestX) {
+            state.roomX[rKey] = autoXSuggestions[rKey].bestX;
+          }
+        }
         saveSettings();
         updateOptimizer();
       };

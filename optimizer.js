@@ -405,6 +405,21 @@
   function findOptimalXForRoom(roomKey, teamShift1, teamShift2, cabinEn, targetTypes, cycleDays, nexusShift1Regen, nexusShift2Regen) {
     let bestX = 12;
     let maxDailyOutput = -1;
+    let bestSafeX = 12;
+    let maxSafeDailyOutput = -1;
+
+    const m1 = calculateTeamMetrics(teamShift1, cabinEn, targetTypes, 7.2);
+    const m2 = calculateTeamMetrics(teamShift2, cabinEn, targetTypes, 7.2);
+
+    const speed1 = (typeof nexusShift1Regen === 'object' && nexusShift1Regen !== null)
+      ? (nexusShift1Regen.realSpeed || 12.0)
+      : (nexusShift1Regen || 12.0);
+    const speed2 = (typeof nexusShift2Regen === 'object' && nexusShift2Regen !== null)
+      ? (nexusShift2Regen.realSpeed || 12.0)
+      : (nexusShift2Regen || 12.0);
+
+    // Luôn đánh giá sản lượng bền vững lâu dài (tối thiểu 7 ngày để loại bỏ ảo tưởng dư pin ngày đầu)
+    const evalDays = Math.max(7, cycleDays || 1);
 
     for (let testX = 1; testX <= 23; testX++) {
       const sim = simulateRoomCycle(
@@ -414,10 +429,30 @@
         cabinEn,
         targetTypes,
         testX,
-        cycleDays,
+        evalDays,
         nexusShift1Regen,
         nexusShift2Regen
       );
+
+      // Kiểm tra an toàn bền vững 100% Stamina mỗi chu kỳ 24h
+      // Ca 1 làm testX tiếng (burn1), nghỉ (24 - testX) tiếng dưới Nexus Ca 2 (speed2)
+      const burned1 = testX * m1.actualBurnRate;
+      const rec1 = (24 - testX) * speed2;
+      const safe1 = (burned1 <= 100) && (rec1 >= burned1);
+
+      // Ca 2 làm (24 - testX) tiếng (burn2), nghỉ testX tiếng dưới Nexus Ca 1 (speed1)
+      const burned2 = (24 - testX) * m2.actualBurnRate;
+      const rec2 = testX * speed1;
+      const safe2 = (burned2 <= 100) && (rec2 >= burned2);
+
+      const isSafe = safe1 && safe2;
+
+      if (isSafe) {
+        if (sim.dailyOutputAvg > maxSafeDailyOutput) {
+          maxSafeDailyOutput = sim.dailyOutputAvg;
+          bestSafeX = testX;
+        }
+      }
 
       if (sim.dailyOutputAvg > maxDailyOutput) {
         maxDailyOutput = sim.dailyOutputAvg;
@@ -425,7 +460,10 @@
       }
     }
 
-    return { bestX, maxDailyOutput };
+    if (maxSafeDailyOutput > 0) {
+      return { bestX: bestSafeX, maxDailyOutput: maxSafeDailyOutput, isSafe: true };
+    }
+    return { bestX, maxDailyOutput, isSafe: false };
   }
 
   // TÌM GIỜ ĐỔI CA ĐỒNG BỘ TOÀN CĂN CỨ TỐI ƯU NHẤT (SYNCHRONIZED SHIFTS)
@@ -433,25 +471,47 @@
   function findOptimalGlobalSyncX(assignment, roomConfigs, cycleDays, nexusShift1Regen, nexusShift2Regen) {
     let bestX = 12;
     let maxBaseSanity = -1;
+    const evalDays = Math.max(7, cycleDays || 1);
 
     for (let testX = 8; testX <= 20; testX++) {
       let totalSan = 0;
+      let allRoomsSafe = true;
+
       for (const roomKey of ['mfg1', 'mfg2', 'growth', 'reception']) {
         if (!assignment[roomKey]) continue;
+        const cfg = roomConfigs[roomKey];
+        const m1 = calculateTeamMetrics(assignment[roomKey].shift1, cfg.cabin, cfg.types, 7.2);
+        const m2 = calculateTeamMetrics(assignment[roomKey].shift2, cfg.cabin, cfg.types, 7.2);
+
+        const speed1 = (typeof nexusShift1Regen === 'object' && nexusShift1Regen !== null)
+          ? (nexusShift1Regen.realSpeed || 12.0)
+          : (nexusShift1Regen || 12.0);
+        const speed2 = (typeof nexusShift2Regen === 'object' && nexusShift2Regen !== null)
+          ? (nexusShift2Regen.realSpeed || 12.0)
+          : (nexusShift2Regen || 12.0);
+
+        const safe1 = (testX * m1.actualBurnRate <= 100) && ((24 - testX) * speed2 >= testX * m1.actualBurnRate);
+        const safe2 = ((24 - testX) * m2.actualBurnRate <= 100) && (testX * speed1 >= (24 - testX) * m2.actualBurnRate);
+
+        if (!safe1 || !safe2) {
+          allRoomsSafe = false;
+        }
+
         const sim = simulateRoomCycle(
           roomKey,
           assignment[roomKey].shift1,
           assignment[roomKey].shift2,
-          roomConfigs[roomKey].cabin,
-          roomConfigs[roomKey].types,
+          cfg.cabin,
+          cfg.types,
           testX,
-          cycleDays,
+          evalDays,
           nexusShift1Regen,
           nexusShift2Regen
         );
         totalSan += sim.sanityDaily;
       }
-      if (totalSan > maxBaseSanity) {
+
+      if (allRoomsSafe && totalSan > maxBaseSanity) {
         maxBaseSanity = totalSan;
         bestX = testX;
       }
