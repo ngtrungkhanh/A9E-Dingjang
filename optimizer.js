@@ -136,7 +136,11 @@
     const roomW = weights ? (
       cabinEn === 'Reception Room' ? (weights.clue !== undefined ? weights.clue : 1.0) :
       cabinEn === 'MFG Cabin' ? (targetTypes.includes('char_exp') ? (weights.char_exp !== undefined ? weights.char_exp : 1.0) : (weights.weapon_exp !== undefined ? weights.weapon_exp : 1.0)) :
-      1.0
+      cabinEn === 'Growth Chamber' ? (
+        targetTypes && targetTypes.length > 0
+          ? Math.max(...(targetTypes.map(t => weights[t] !== undefined ? weights[t] : 1.0)))
+          : 1.0
+      ) : 1.0
     ) : 1.0;
     const redScore = (isShift2 || roomW === 0) ? 0 : ((sk.red || 0) * 1.5);
     return buffScore + redScore;
@@ -495,7 +499,8 @@
 
   // TÌM GIỜ ĐỔI CA ĐỒNG BỘ TOÀN CĂN CỨ TỐI ƯU NHẤT (SYNCHRONIZED SHIFTS)
   // Giúp toàn bộ 12 cán viên ca 1 nghỉ ngơi cùng lúc, đón trọn vẹn buff hồi phục của Nexus Ca 2
-  function findOptimalGlobalSyncX(assignment, roomConfigs, cycleDays, nexusShift1Regen, nexusShift2Regen) {
+  // Tối ưu hóa theo TỔNG SANITY HIỆU LỰC (đã nhân hệ số ưu tiên)
+  function findOptimalGlobalSyncX(assignment, roomConfigs, cycleDays, nexusShift1Regen, nexusShift2Regen, weights) {
     let bestX = 12;
     let maxBaseSanity = -1;
     const evalDays = Math.max(7, cycleDays || 1);
@@ -535,7 +540,18 @@
           nexusShift1Regen,
           nexusShift2Regen
         );
-        totalSan += sim.sanityDaily;
+
+        const w = (!weights) ? 1.0
+          : (roomKey === 'mfg1') ? (weights.char_exp !== undefined ? weights.char_exp : 1.0)
+          : (roomKey === 'mfg2') ? (weights.weapon_exp !== undefined ? weights.weapon_exp : 1.0)
+          : (roomKey === 'growth') ? (
+              (cfg.types && cfg.types.length > 0)
+                ? (cfg.types.map(t => weights[t] !== undefined ? weights[t] : 1.0).reduce((a, b) => a + b, 0) / cfg.types.length)
+                : 1.0
+            )
+          : (weights.clue !== undefined ? weights.clue : 1.0);
+
+        totalSan += sim.sanityDaily * w;
       }
 
       if (allRoomsSafe && totalSan > maxBaseSanity) {
@@ -716,34 +732,45 @@
     return desc;
   }
 
-  function calculateDailySanityGain(cabinVi, effGain) {
+  function calculateDailySanityGain(cabinVi, effGain, weights, skillDesc = '') {
     // Hệ số đội hình 3 người nền trong Arknights Endfield: 1.0 + 0.4 * 3 = 2.2 (220%)
     // Khi cán viên tăng +X% buff cá nhân, hiệu suất phòng tăng tương ứng: 2.2 * X%
     const teamBaseMultiplier = 2.2;
+    const desc = skillDesc || '';
 
     if (cabinVi.includes('Sản Xuất') || cabinVi.includes('Manufacturing')) {
-      // Ca 1 chủ lực làm việc ~18-19h/ngày. 1 đv sản lượng EXP = 0.48128 Sanity.
-      // Ví dụ +10% cá nhân => phòng tăng 22% hiệu suất => 18.5h * 0.22 * 0.48128 = ~1.96 Sanity/ngày
-      return parseFloat((18.5 * (effGain / 100.0) * teamBaseMultiplier * 0.48128).toFixed(2));
+      const isWeapon = desc.includes('Vũ khí') || desc.includes('Weapon') || desc.includes('vũ khí');
+      const w = weights ? (isWeapon ? (weights.weapon_exp !== undefined ? weights.weapon_exp : 1.0) : (weights.char_exp !== undefined ? weights.char_exp : 1.0)) : 1.0;
+      return parseFloat((18.5 * (effGain / 100.0) * teamBaseMultiplier * 0.48128 * w).toFixed(2));
     }
     if (cabinVi.includes('Buồng Phát Triển') || cabinVi.includes('Growth')) {
-      // Ca 1 Buồng Phát Triển làm việc ~14h/ngày. 1 đv sản lượng = 0.14438 Sanity
-      return parseFloat((14.0 * (effGain / 100.0) * teamBaseMultiplier * 0.14438).toFixed(2));
+      const isMineral = desc.includes('khoáng sản') || desc.includes('Mineral');
+      const isFungus = desc.includes('nấm') || desc.includes('Fungus');
+      const isPlant = desc.includes('cây trồng') || desc.includes('Plant');
+      let w = 1.0;
+      if (weights) {
+        if (isMineral) w = weights.mineral !== undefined ? weights.mineral : 1.0;
+        else if (isFungus) w = weights.fungus !== undefined ? weights.fungus : 1.0;
+        else if (isPlant) w = weights.plant !== undefined ? weights.plant : 1.0;
+        else w = Math.max(weights.plant !== undefined ? weights.plant : 1.0, weights.mineral !== undefined ? weights.mineral : 1.0, weights.fungus !== undefined ? weights.fungus : 1.0);
+      }
+      return parseFloat((14.0 * (effGain / 100.0) * teamBaseMultiplier * 0.14438 * w).toFixed(2));
     }
     if (cabinVi.includes('Tiếp Khách') || cabinVi.includes('Reception')) {
-      // Ca 1 Tiếp Khách làm việc ~19h/ngày. 1 đv sản lượng = 0.24064 Sanity
-      return parseFloat((19.0 * (effGain / 100.0) * teamBaseMultiplier * 0.24064).toFixed(2));
+      const w = (weights && weights.clue !== undefined) ? weights.clue : 1.0;
+      return parseFloat((19.0 * (effGain / 100.0) * teamBaseMultiplier * 0.24064 * w).toFixed(2));
     }
     if (cabinVi.includes('Kiểm Soát') || cabinVi.includes('Nexus')) {
-      // Nexus buff +12%~16% hồi phục cho toàn bộ 12 cán viên thuộc 4 khoang sản xuất khi nghỉ ngơi,
-      // giúp duy trì ca làm việc dài 18-19h mà không bị kiệt sức
-      return 2.10;
+      const avgW = weights ? (((weights.char_exp || 1.0) + (weights.weapon_exp || 1.0) + (weights.clue || 1.0) + Math.max(weights.plant || 1.0, weights.mineral || 1.0, weights.fungus || 1.0)) / 4.0) : 1.0;
+      return parseFloat((2.10 * avgW).toFixed(2));
     }
     return 1.5;
   }
 
   // Đề xuất nâng cấp: QUY ĐỔI SANITY & XẾP THEO THỜI GIAN HOÀN VỐN NGẮN NHẤT
-  function getUpgradeRecommendations(userOperators, fullSkillsData) {
+  // Dựa trên bảng Sanity chuẩn của A9E_SANITY_DATA (Milestones 20, 40, 60, 80)
+  // Ưu tiên theo lượng Sanity hiệu lực sau khi nhân hệ số
+  function getUpgradeRecommendations(userOperators, fullSkillsData, weights) {
     if (!userOperators || userOperators.length === 0) return [];
 
     const fullMap = {};
@@ -782,11 +809,11 @@
           const shortBenefit = getShortSkillBenefit(unlockSkill.desc_vi || '');
           const effMatch = (unlockSkill.desc_vi || '').match(/(\d+)%/);
           const effGain = effMatch ? parseInt(effMatch[1], 10) : 10;
-          const dailySanityGain = calculateDailySanityGain(s1.cabin_vi, effGain);
-          const paybackDays = Math.round(cost / Math.max(0.05, dailySanityGain));
-          const dailyRoi = parseFloat(((dailySanityGain / Math.max(1, cost)) * 100).toFixed(2));
+          const dailySanityGain = calculateDailySanityGain(s1.cabin_vi, effGain, weights, unlockSkill.desc_vi);
+          const paybackDays = dailySanityGain > 0 ? Math.round(cost / dailySanityGain) : 999999;
+          const dailyRoi = dailySanityGain > 0 ? parseFloat(((dailySanityGain / Math.max(1, cost)) * 100).toFixed(2)) : 0.0;
           const tier = paybackDays <= 120 ? 'fast' : (paybackDays <= 365 ? 'medium' : 'long');
-          const tierLabel = paybackDays <= 120 ? '⚡ Hoàn vốn nhanh' : (paybackDays <= 365 ? '🔷 Hợp lý' : '🔶 Dài hạn (Đi kèm Combat)');
+          const tierLabel = (dailySanityGain <= 0) ? '🔶 Bỏ qua (Ưu tiên 0)' : (paybackDays <= 120 ? '⚡ Hoàn vốn nhanh' : (paybackDays <= 365 ? '🔷 Hợp lý' : '🔶 Dài hạn (Đi kèm Combat)'));
           recs.push({
             name,
             rarity: op.rarity || '5',
@@ -814,11 +841,11 @@
           const shortBenefit = getShortSkillBenefit(unlockSkill.desc_vi || '');
           const effMatch = (unlockSkill.desc_vi || '').match(/(\d+)%/);
           const effGain = effMatch ? parseInt(effMatch[1], 10) : 20;
-          const dailySanityGain = calculateDailySanityGain(s2.cabin_vi, effGain);
-          const paybackDays = Math.round(cost / Math.max(0.05, dailySanityGain));
-          const dailyRoi = parseFloat(((dailySanityGain / Math.max(1, cost)) * 100).toFixed(2));
+          const dailySanityGain = calculateDailySanityGain(s2.cabin_vi, effGain, weights, unlockSkill.desc_vi);
+          const paybackDays = dailySanityGain > 0 ? Math.round(cost / dailySanityGain) : 999999;
+          const dailyRoi = dailySanityGain > 0 ? parseFloat(((dailySanityGain / Math.max(1, cost)) * 100).toFixed(2)) : 0.0;
           const tier = paybackDays <= 120 ? 'fast' : (paybackDays <= 365 ? 'medium' : 'long');
-          const tierLabel = paybackDays <= 120 ? '⚡ Hoàn vốn nhanh' : (paybackDays <= 365 ? '🔷 Hợp lý' : '🔶 Dài hạn (Đi kèm Combat)');
+          const tierLabel = (dailySanityGain <= 0) ? '🔶 Bỏ qua (Ưu tiên 0)' : (paybackDays <= 120 ? '⚡ Hoàn vốn nhanh' : (paybackDays <= 365 ? '🔷 Hợp lý' : '🔶 Dài hạn (Đi kèm Combat)'));
           recs.push({
             name,
             rarity: op.rarity || '5',
@@ -848,11 +875,11 @@
           const curVal = effMatch ? parseInt(effMatch[1], 10) : 20;
           const prevVal = prevMatch ? parseInt(prevMatch[1], 10) : 10;
           const effGain = Math.max(5, curVal - prevVal);
-          const dailySanityGain = calculateDailySanityGain(s1.cabin_vi, effGain);
-          const paybackDays = Math.round(cost / Math.max(0.05, dailySanityGain));
-          const dailyRoi = parseFloat(((dailySanityGain / Math.max(1, cost)) * 100).toFixed(2));
+          const dailySanityGain = calculateDailySanityGain(s1.cabin_vi, effGain, weights, s1_max.desc_vi);
+          const paybackDays = dailySanityGain > 0 ? Math.round(cost / dailySanityGain) : 999999;
+          const dailyRoi = dailySanityGain > 0 ? parseFloat(((dailySanityGain / Math.max(1, cost)) * 100).toFixed(2)) : 0.0;
           const tier = paybackDays <= 120 ? 'fast' : (paybackDays <= 365 ? 'medium' : 'long');
-          const tierLabel = paybackDays <= 120 ? '⚡ Hoàn vốn nhanh' : (paybackDays <= 365 ? '🔷 Hợp lý' : '🔶 Dài hạn (Đi kèm Combat)');
+          const tierLabel = (dailySanityGain <= 0) ? '🔶 Bỏ qua (Ưu tiên 0)' : (paybackDays <= 120 ? '⚡ Hoàn vốn nhanh' : (paybackDays <= 365 ? '🔷 Hợp lý' : '🔶 Dài hạn (Đi kèm Combat)'));
           recs.push({
             name,
             rarity: op.rarity || '5',
@@ -882,11 +909,11 @@
           const curVal = effMatch ? parseInt(effMatch[1], 10) : 30;
           const prevVal = prevMatch ? parseInt(prevMatch[1], 10) : 20;
           const effGain = Math.max(5, curVal - prevVal);
-          const dailySanityGain = calculateDailySanityGain(s2.cabin_vi, effGain);
-          const paybackDays = Math.round(cost / Math.max(0.05, dailySanityGain));
-          const dailyRoi = parseFloat(((dailySanityGain / Math.max(1, cost)) * 100).toFixed(2));
+          const dailySanityGain = calculateDailySanityGain(s2.cabin_vi, effGain, weights, s2_max.desc_vi);
+          const paybackDays = dailySanityGain > 0 ? Math.round(cost / dailySanityGain) : 999999;
+          const dailyRoi = dailySanityGain > 0 ? parseFloat(((dailySanityGain / Math.max(1, cost)) * 100).toFixed(2)) : 0.0;
           const tier = paybackDays <= 120 ? 'fast' : (paybackDays <= 365 ? 'medium' : 'long');
-          const tierLabel = paybackDays <= 120 ? '⚡ Hoàn vốn nhanh' : (paybackDays <= 365 ? '🔷 Hợp lý' : '🔶 Dài hạn (Đi kèm Combat)');
+          const tierLabel = (dailySanityGain <= 0) ? '🔶 Bỏ qua (Ưu tiên 0)' : (paybackDays <= 120 ? '⚡ Hoàn vốn nhanh' : (paybackDays <= 365 ? '🔷 Hợp lý' : '🔶 Dài hạn (Đi kèm Combat)'));
           recs.push({
             name,
             rarity: op.rarity || '5',

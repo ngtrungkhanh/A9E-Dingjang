@@ -256,11 +256,11 @@
     }
 
     const upgradeRecs = (state.userData && state.userData.operators)
-      ? A9EOptimizer.getUpgradeRecommendations(state.userData.operators, FULL_SKILLS_DATA)
+      ? A9EOptimizer.getUpgradeRecommendations(state.userData.operators, FULL_SKILLS_DATA, state.weights)
       : [];
 
     const optimalSync = (typeof A9EOptimizer !== 'undefined' && typeof A9EOptimizer.findOptimalGlobalSyncX === 'function')
-      ? A9EOptimizer.findOptimalGlobalSyncX(assignment, roomConfigs, state.cycleDays, nexusRegen1, nexusRegen2)
+      ? A9EOptimizer.findOptimalGlobalSyncX(assignment, roomConfigs, state.cycleDays, nexusRegen1, nexusRegen2, state.weights)
       : { bestX: 18, maxBaseSanity: 127.0 };
 
     renderUI(ops, assignment, roomConfigs, simResults, autoXSuggestions, nexusRegen1, nexusRegen2, upgradeRecs, optimalSync);
@@ -480,7 +480,7 @@
       </div>
 
       <!-- THANH ĐIỀU KHIỂN ĐỒNG BỘ ĐỔI CA TOÀN CĂN CỨ -->
-      ${renderGlobalSyncShiftCard(optimalSync, nexusRegen2)}
+      ${renderGlobalSyncShiftCard(optimalSync, nexusRegen2, totalWeightedSanity)}
 
       <!-- DANH SÁCH 5 PHÒNG (NEXUS ĐẦU TIÊN) -->
       <div class="rooms-container">
@@ -515,7 +515,7 @@
   }
 
   // Render Thanh Điều Khiển Đổi Ca (Đồng Bộ Giao Ca Lúc xx:00)
-  function renderGlobalSyncShiftCard(optimalSync, nexusRegen2) {
+  function renderGlobalSyncShiftCard(optimalSync, nexusRegen2, totalWeightedSanity = 130.5) {
     const syncH = (state.syncHour !== undefined && state.syncHour !== null) ? state.syncHour : 19;
     const syncHStr = (syncH < 10 ? '0' : '') + syncH;
 
@@ -535,7 +535,7 @@
                 Đồng Bộ Mốc Giao Ca Căn Cứ
               </h3>
               <span class="badge-tag" style="background:rgba(52,211,153,0.15); color:#34d399; font-size:0.75rem;">
-                ✓ Giao ca lúc ${syncHStr}:00 (130.5 San/ngày)
+                ✓ Giao ca lúc ${syncHStr}:00 (${totalWeightedSanity} San/ngày)
               </span>
             </div>
             <p style="font-size:0.78rem; color:var(--text-secondary); margin-top:3px;">
