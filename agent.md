@@ -106,9 +106,11 @@ Căn cứ dựa trên tỷ lệ tiêu hao ải game tiêu chuẩn (80 Sanity / l
 * Bảng nhập hệ số nhân cuối độc lập cho 6 loại tài nguyên:
   * **Hàng 1:** EXP Cán Viên (`char_exp`), EXP Vũ Khí (`weapon_exp`), Manh Mối (`clue`).
   * **Hàng 2:** Cây Trồng (`plant`), Khoáng Sản (`mineral`), Nấm (`fungus`).
-* Hệ số nhân tác động trực tiếp lên giá trị Sanity quy đổi cuối cùng:
-  $$\text{Sanity Quy Đổi} = \text{Sanity Gốc} \times \text{Hệ Số}$$
-* Giúp người chơi định hướng tối ưu hóa căn cứ theo nhu cầu tài nguyên từng giai đoạn (ví dụ cần gấp EXP Vũ khí thì tăng hệ số lên 1.5).
+* **Tác động trực tiếp lên sản lượng Sanity hiển thị:**
+  $$\text{Sanity Hiệu Lực} = \text{Sanity Gốc} \times \text{Hệ Số Ưu Tiên}$$
+  * Khi đặt hệ số của một loại tài nguyên về `0` (ví dụ `clue: 0`), phòng tương ứng (Phòng Tiếp Khách) sẽ ghi nhận trực tiếp **0.0 San/ngày** cả ở thẻ phòng và khối Metrics.
+  * Tổng Sanity căn cứ được tính bằng tổng các Sanity hiệu lực, loại trừ hoàn toàn các phòng có hệ số 0.
+  * Thuật toán tối ưu (`assignDistinctRooms` và `evaluateGlobalBaseScore`) sẽ tự động hạ mức ưu tiên của phòng có hệ số 0 xuống thấp nhất, điều chuyển các cán viên xịn sang các phòng có hệ số cao hơn.
 
 ---
 

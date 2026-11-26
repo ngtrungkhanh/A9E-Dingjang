@@ -284,7 +284,9 @@
     const wPlant = state.weights.plant !== undefined ? state.weights.plant : 1.0;
     const wMineral = state.weights.mineral !== undefined ? state.weights.mineral : 1.0;
     const wFungus = state.weights.fungus !== undefined ? state.weights.fungus : 1.0;
-    const wGrowth = Math.max(wPlant, wMineral, wFungus);
+    const gTypes = roomConfigs.growth.types || ['plant'];
+    const gWeights = gTypes.map(t => state.weights[t] !== undefined ? state.weights[t] : 1.0);
+    const wGrowth = gWeights.length > 0 ? (gWeights.reduce((a, b) => a + b, 0) / gWeights.length) : 1.0;
 
     const weightedChar = parseFloat((simResults.mfg1.sanityDaily * wChar).toFixed(1));
     const weightedWeapon = parseFloat((simResults.mfg2.sanityDaily * wWeapon).toFixed(1));
@@ -433,37 +435,37 @@
         <div class="metrics-grid">
           <div class="metric-box cyan">
             <div class="metric-title">${t('wCharExp')}</div>
-            <div class="metric-num" style="color:#38bdf8;">${simResults.mfg1.sanityDaily} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
+            <div class="metric-num" style="color:#38bdf8;">${weightedChar} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
             <div class="metric-desc">
-              ${wChar !== 1.0 ? `<span style="color:#fbbf24; font-weight:700;">Hệ số x${wChar}: ${weightedChar} San</span>` : `Hiệu suất TB: ${simResults.mfg1.dailyAvgEfficiency}%`}
+              ${wChar !== 1.0 ? `<span style="color:#fbbf24; font-weight:700;">Gốc: ${simResults.mfg1.sanityDaily} San (x${wChar})</span>` : `Hiệu suất TB: ${simResults.mfg1.dailyAvgEfficiency}%`}
             </div>
           </div>
           <div class="metric-box cyan">
             <div class="metric-title">${t('wWeaponExp')}</div>
-            <div class="metric-num" style="color:#38bdf8;">${simResults.mfg2.sanityDaily} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
+            <div class="metric-num" style="color:#38bdf8;">${weightedWeapon} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
             <div class="metric-desc">
-              ${wWeapon !== 1.0 ? `<span style="color:#fbbf24; font-weight:700;">Hệ số x${wWeapon}: ${weightedWeapon} San</span>` : `Hiệu suất TB: ${simResults.mfg2.dailyAvgEfficiency}%`}
+              ${wWeapon !== 1.0 ? `<span style="color:#fbbf24; font-weight:700;">Gốc: ${simResults.mfg2.sanityDaily} San (x${wWeapon})</span>` : `Hiệu suất TB: ${simResults.mfg2.dailyAvgEfficiency}%`}
             </div>
           </div>
           <div class="metric-box green">
             <div class="metric-title">${t('growthName')}</div>
-            <div class="metric-num" style="color:#34d399;">${simResults.growth.sanityDaily} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
+            <div class="metric-num" style="color:#34d399;">${weightedGrowth} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
             <div class="metric-desc">
-              ${wGrowth !== 1.0 ? `<span style="color:#fbbf24; font-weight:700;">Hệ số x${wGrowth}: ${weightedGrowth} San</span>` : `Hiệu suất TB: ${simResults.growth.dailyAvgEfficiency}%`}
+              ${wGrowth !== 1.0 ? `<span style="color:#fbbf24; font-weight:700;">Gốc: ${simResults.growth.sanityDaily} San (x${parseFloat(wGrowth.toFixed(2))})</span>` : `Hiệu suất TB: ${simResults.growth.dailyAvgEfficiency}%`}
             </div>
           </div>
           <div class="metric-box purple">
             <div class="metric-title">${t('wClue')}</div>
-            <div class="metric-num" style="color:#c084fc;">${simResults.reception.sanityDaily} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
+            <div class="metric-num" style="color:#c084fc;">${weightedClue} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">San/ngày</span></div>
             <div class="metric-desc">
-              ${wClue !== 1.0 ? `<span style="color:#fbbf24; font-weight:700;">Hệ số x${wClue}: ${weightedClue} San</span>` : `Hiệu suất TB: ${simResults.reception.dailyAvgEfficiency}%`}
+              ${wClue !== 1.0 ? `<span style="color:#fbbf24; font-weight:700;">Gốc: ${simResults.reception.sanityDaily} San (x${wClue})</span>` : `Hiệu suất TB: ${simResults.reception.dailyAvgEfficiency}%`}
             </div>
           </div>
           <div class="metric-box">
             <div class="metric-title">Tổng Sanity Căn Cứ</div>
-            <div class="metric-num" style="color:#fbbf24;">${parseFloat(totalBaseDailySanity.toFixed(1))} <span style="font-size:0.75rem; font-weight:normal; color:#fde68a;">San/ngày</span></div>
+            <div class="metric-num" style="color:#fbbf24;">${totalWeightedSanity} <span style="font-size:0.75rem; font-weight:normal; color:#fde68a;">San/ngày</span></div>
             <div class="metric-desc">
-              ${hasCustomWeights ? `<span style="color:#fbbf24; font-weight:700;">Hệ số nhân: ${totalWeightedSanity} San</span>` : `Toàn bộ 4 khoang sản xuất`}
+              ${hasCustomWeights ? `<span style="color:#fbbf24; font-weight:700;">Gốc: ${parseFloat(totalBaseDailySanity.toFixed(1))} San/ngày</span>` : `Toàn bộ 4 khoang sản xuất`}
             </div>
           </div>
         </div>
@@ -486,16 +488,16 @@
         ${renderNexusCard('nexus', t('nexusName'), assignment.nexus, state.roomX.nexus || 12, nexusRegen1, nexusRegen2, autoXSuggestions.nexus, state.syncHour)}
         
         <!-- 2. KHOANG SX 1 -->
-        ${renderRoomCard('mfg1', t('mfg1Name'), assignment.mfg1, simResults.mfg1, autoXSuggestions.mfg1, 'MFG Cabin', ['char_exp'], nexusRegen1, nexusRegen2, state.syncHour)}
+        ${renderRoomCard('mfg1', t('mfg1Name'), assignment.mfg1, simResults.mfg1, autoXSuggestions.mfg1, 'MFG Cabin', ['char_exp'], nexusRegen1, nexusRegen2, state.syncHour, wChar)}
         
         <!-- 3. KHOANG SX 2 -->
-        ${renderRoomCard('mfg2', t('mfg2Name'), assignment.mfg2, simResults.mfg2, autoXSuggestions.mfg2, 'MFG Cabin', ['weapon_exp'], nexusRegen1, nexusRegen2, state.syncHour)}
+        ${renderRoomCard('mfg2', t('mfg2Name'), assignment.mfg2, simResults.mfg2, autoXSuggestions.mfg2, 'MFG Cabin', ['weapon_exp'], nexusRegen1, nexusRegen2, state.syncHour, wWeapon)}
         
         <!-- 4. BUỒNG PHÁT TRIỂN -->
-        ${renderRoomCard('growth', t('growthName'), assignment.growth, simResults.growth, autoXSuggestions.growth, 'Growth Chamber', roomConfigs.growth.types, nexusRegen1, nexusRegen2, state.syncHour)}
+        ${renderRoomCard('growth', t('growthName'), assignment.growth, simResults.growth, autoXSuggestions.growth, 'Growth Chamber', roomConfigs.growth.types, nexusRegen1, nexusRegen2, state.syncHour, wGrowth)}
         
         <!-- 5. PHÒNG TIẾP KHÁCH -->
-        ${renderRoomCard('reception', t('receptionName'), assignment.reception, simResults.reception, autoXSuggestions.reception, 'Reception Room', ['clue'], nexusRegen1, nexusRegen2, state.syncHour)}
+        ${renderRoomCard('reception', t('receptionName'), assignment.reception, simResults.reception, autoXSuggestions.reception, 'Reception Room', ['clue'], nexusRegen1, nexusRegen2, state.syncHour, wClue)}
       </div>
 
       <!-- ĐỀ XUẤT NÂNG CẤP CÁN VIÊN (ĐƯA XUỐNG DƯỚI CÙNG & GẬP MỞ ACCORDION) -->
@@ -623,7 +625,7 @@
   }
 
   // Render Card cho Phòng Sản Xuất (Ô nhập số giờ + Nút Mặc định 12h + Nút Đề xuất)
-  function renderRoomCard(roomKey, roomTitle, roomAssignment, simRes, autoX, cabinEn, targetTypes, nexusRegen1, nexusRegen2, syncHour = 19) {
+  function renderRoomCard(roomKey, roomTitle, roomAssignment, simRes, autoX, cabinEn, targetTypes, nexusRegen1, nexusRegen2, syncHour = 19, roomWeight = 1.0) {
     const x = simRes.x;
     const remain = 24 - x;
 
@@ -657,6 +659,12 @@
       `;
     }
 
+    const effectiveSanity = parseFloat((simRes.sanityDaily * roomWeight).toFixed(1));
+    let sanityDisplay = `${effectiveSanity} San/ngày`;
+    if (roomWeight !== 1.0) {
+      sanityDisplay += ` <span style="font-size:0.75rem; color:#fbbf24; font-weight:600;">(Gốc: ${simRes.sanityDaily} × ${parseFloat(roomWeight.toFixed(2))})</span>`;
+    }
+
     return `
       <div class="glass-panel" style="padding:1.25rem; margin-bottom:1.5rem;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:0.75rem; margin-bottom:0.75rem;">
@@ -665,7 +673,7 @@
               <span>🏢</span> ${roomTitle}
             </h3>
             <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">
-              ${t('dailyOutLabel', { san: simRes.sanityDaily })} | ${t('dailyEffLabel', { eff: simRes.dailyAvgEfficiency })}
+              Sản lượng: <strong style="color:#38bdf8;">${sanityDisplay}</strong> | ${t('dailyEffLabel', { eff: simRes.dailyAvgEfficiency })}
             </div>
           </div>
 
@@ -1110,7 +1118,8 @@
     document.querySelectorAll('.weight-number-input').forEach(inp => {
       inp.onchange = (e) => {
         const wKey = e.target.getAttribute('data-weight');
-        state.weights[wKey] = Math.max(0, parseFloat(e.target.value) || 1.0);
+        const parsed = parseFloat(e.target.value);
+        state.weights[wKey] = Math.max(0, isNaN(parsed) ? 1.0 : parsed);
         saveSettings();
         updateOptimizer();
       };

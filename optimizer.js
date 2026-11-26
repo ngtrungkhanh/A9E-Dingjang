@@ -124,7 +124,7 @@
     if (sk.buffs) {
       for (const t of targetTypes) {
         if (sk.buffs[t]) {
-          const w = weights[t] !== undefined ? weights[t] : 1.0;
+          const w = weights && weights[t] !== undefined ? weights[t] : 1.0;
           buffScore += sk.buffs[t] * w;
         }
       }
@@ -132,7 +132,13 @@
 
     // Ở Ca 2 (chỉ làm việc 4-5h rồi nghỉ tới 19h), giảm hao tâm trạng hoàn toàn vô nghĩa!
     // Do đó redScore ở Ca 2 bằng 0, chỉ ưu tiên sản lượng thuần túy (+buffScore).
-    const redScore = isShift2 ? 0 : ((sk.red || 0) * 1.5);
+    // Nếu trọng số của phòng bằng 0 thì cả redScore cũng không còn ý nghĩa!
+    const roomW = weights ? (
+      cabinEn === 'Reception Room' ? (weights.clue !== undefined ? weights.clue : 1.0) :
+      cabinEn === 'MFG Cabin' ? (targetTypes.includes('char_exp') ? (weights.char_exp !== undefined ? weights.char_exp : 1.0) : (weights.weapon_exp !== undefined ? weights.weapon_exp : 1.0)) :
+      1.0
+    ) : 1.0;
+    const redScore = (isShift2 || roomW === 0) ? 0 : ((sk.red || 0) * 1.5);
     return buffScore + redScore;
   }
 
@@ -141,10 +147,15 @@
     const prodRooms = ['mfg1', 'mfg2', 'growth', 'reception'];
     prodRooms.sort((a, b) => {
       const getW = (r) => {
-        if (r === 'mfg1') return weights.char_exp || 1.0;
-        if (r === 'mfg2') return weights.weapon_exp || 1.0;
-        if (r === 'growth') return Math.max(...(roomConfigs.growth.types.map(t => weights[t] || 1.0)), 1.0);
-        if (r === 'reception') return weights.clue || 1.0;
+        if (!weights) return 1.0;
+        if (r === 'mfg1') return weights.char_exp !== undefined ? weights.char_exp : 1.0;
+        if (r === 'mfg2') return weights.weapon_exp !== undefined ? weights.weapon_exp : 1.0;
+        if (r === 'growth') {
+          const types = (roomConfigs.growth && roomConfigs.growth.types) || ['plant'];
+          const gWeights = types.map(t => weights[t] !== undefined ? weights[t] : 1.0);
+          return gWeights.length > 0 ? (gWeights.reduce((x, y) => x + y, 0) / gWeights.length) : 1.0;
+        }
+        if (r === 'reception') return weights.clue !== undefined ? weights.clue : 1.0;
         return 1.0;
       };
       return getW(b) - getW(a);
@@ -564,9 +575,14 @@
         reg1,
         reg2
       );
-      const w = (r === 'mfg1') ? (weights.char_exp !== undefined ? weights.char_exp : 1.0)
+      const w = (!weights) ? 1.0
+              : (r === 'mfg1') ? (weights.char_exp !== undefined ? weights.char_exp : 1.0)
               : (r === 'mfg2') ? (weights.weapon_exp !== undefined ? weights.weapon_exp : 1.0)
-              : (r === 'growth') ? Math.max(weights.plant || 1.0, weights.mineral || 1.0, weights.fungus || 1.0)
+              : (r === 'growth') ? (
+                  (cfg.types && cfg.types.length > 0)
+                    ? (cfg.types.map(t => weights[t] !== undefined ? weights[t] : 1.0).reduce((a, b) => a + b, 0) / cfg.types.length)
+                    : 1.0
+                )
               : (weights.clue !== undefined ? weights.clue : 1.0);
       const sanValue = opt.maxDailyOutput * (SANITY_PER_UNIT[r] || (11.5508 / 24.0));
       totalScore += sanValue * w;
